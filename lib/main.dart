@@ -77,7 +77,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> saveExpenses() async {
-    print("保存開始");
     final prefs = await SharedPreferences.getInstance();
 
     final jsonList = expenses.map((e) => jsonEncode(e.toJson())).toList();
@@ -86,12 +85,9 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> loadExpenses() async {
-    print("読込開始");
     final prefs = await SharedPreferences.getInstance();
 
     final jsonList = prefs.getStringList('expenses');
-
-    print(jsonList);
 
     if (jsonList == null) {
       return;
@@ -218,7 +214,7 @@ class _InputPageState extends State<InputPage> {
           const SizedBox(height: 16),
 
           DropdownButtonFormField<String>(
-            value: _selectedCategory,
+            initialValue: _selectedCategory,
             decoration: const InputDecoration(
               labelText: 'カテゴリ',
               border: OutlineInputBorder(),
@@ -238,33 +234,17 @@ class _InputPageState extends State<InputPage> {
 
           const SizedBox(height: 16),
 
-          Row(
-            children: [
-              Expanded(
-                child: RadioListTile<bool>(
-                  title: const Text('支出'),
-                  value: false,
-                  groupValue: _isIncome,
-                  onChanged: (value) {
-                    setState(() {
-                      _isIncome = value!;
-                    });
-                  },
-                ),
-              ),
-              Expanded(
-                child: RadioListTile<bool>(
-                  title: const Text('収入'),
-                  value: true,
-                  groupValue: _isIncome,
-                  onChanged: (value) {
-                    setState(() {
-                      _isIncome = value!;
-                    });
-                  },
-                ),
-              ),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('支出')),
+              ButtonSegment(value: true, label: Text('収入')),
             ],
+            selected: {_isIncome},
+            onSelectionChanged: (Set<bool> newSelection) {
+              setState(() {
+                _isIncome = newSelection.first;
+              });
+            },
           ),
 
           ListTile(
