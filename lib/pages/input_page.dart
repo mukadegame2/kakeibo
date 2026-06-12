@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../widgets/summary_card.dart';
 import '../models/expense.dart';
+import '../services/category_service.dart';
 
 // ========================================
 // 入力画面
@@ -148,7 +149,23 @@ class _InputPageState extends State<InputPage> {
   String _selectedCategory = '食費';
 
   // カテゴリ一覧
-  final List<String> _categories = ['食費', '日用品', '交通費', '趣味', '交際費', 'その他'];
+  List<String> _categories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    _categories = await CategoryService.loadCategories();
+
+    if (_categories.isNotEmpty) {
+      _selectedCategory = _categories.first;
+    }
+
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -178,11 +195,12 @@ class _InputPageState extends State<InputPage> {
         )
         .fold(0, (sum, e) => sum + e.amount);
 
+    if (_categories.isEmpty)
+      return const Center(child: CircularProgressIndicator());
+
     // ========================================
     // 収支計算
     // ========================================
-    int balance = totalIncome - totalExpense;
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -350,11 +368,7 @@ class _InputPageState extends State<InputPage> {
           // ========================================
           // 今月の収支サマリー
           // ========================================
-          SummaryCard(
-            totalIncome: totalIncome,
-            totalExpense: totalExpense,
-            balance: balance,
-          ),
+          SummaryCard(income: totalIncome, expense: totalExpense),
 
           const SizedBox(height: 16),
 
