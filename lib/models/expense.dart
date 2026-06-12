@@ -1,7 +1,4 @@
-import 'package:fl_chart/fl_chart.dart';    // グラフ描画用ライブラリ
-import 'dart:convert';                    // JSON変換用
-import 'package:flutter/material.dart';     // Flutter UIライブラリ
-import 'package:shared_preferences/shared_preferences.dart';  // データ保存用ライブラリ
+
 
 // ========================================
 // 家計簿データクラス

@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../models/expense.dart';
+import '../widgets/month_selector.dart';
 
 // ========================================
 // グラフ画面
@@ -114,52 +114,26 @@ class _GraphPageState extends State<GraphPage> {
         // グラフと一覧を縦に配置
         children: [
           // 月切替のUI
-          Row(
-            // 月切替のUIを横に配置
-            mainAxisAlignment: MainAxisAlignment.center, // 中央揃え
-            children: [
-              // 前月ボタン
-              IconButton(
-                icon: const Icon(Icons.arrow_back), // 前月アイコン
-                onPressed: () {
-                  // 前月に切替
-                  setState(() {
-                    // 状態更新
-                    selectedMonth = DateTime(
-                      // 年を維持して月を1減らす
-                      selectedMonth.year, // 年を維持
-                      selectedMonth.month - 1, // 月を1減らす
-                    );
-                  });
-                },
-              ),
+          MonthSelector(
+            selectedMonth: selectedMonth,
 
-              // 現在の年月表示
-              Text(
-                "${selectedMonth.year}年${selectedMonth.month}月", // 年月を表示
-                style: const TextStyle(
-                  // フォントサイズと太さを設定
-                  fontSize: 20, // フォントサイズ
-                  fontWeight: FontWeight.bold, // フォントの太さ
-                ),
-              ),
+            onPrevious: () {
+              setState(() {
+                selectedMonth = DateTime(
+                  selectedMonth.year,
+                  selectedMonth.month - 1,
+                );
+              });
+            },
 
-              // 次月ボタン
-              IconButton(
-                icon: const Icon(Icons.arrow_forward), // 次月アイコン
-                onPressed: () {
-                  // 次月に切替
-                  setState(() {
-                    // 状態更新
-                    selectedMonth = DateTime(
-                      // 年を維持して月を1増やす
-                      selectedMonth.year, // 年を維持
-                      selectedMonth.month + 1, // 月を1増やす
-                    );
-                  });
-                },
-              ),
-            ],
+            onNext: () {
+              setState(() {
+                selectedMonth = DateTime(
+                  selectedMonth.year,
+                  selectedMonth.month + 1,
+                );
+              });
+            },
           ),
 
           // 月切替とグラフの間の余白

@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
+import '../widgets/summary_card.dart';
 import '../models/expense.dart';
 
 // ========================================
@@ -44,7 +43,7 @@ class _InputPageState extends State<InputPage> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text("編集"),
 
@@ -103,6 +102,8 @@ class _InputPageState extends State<InputPage> {
             // 更新ボタン
             ElevatedButton(
               onPressed: () async {
+                Navigator.of(dialogContext).pop();
+
                 final index = widget.expenses.indexOf(expense);
 
                 widget.expenses[index] = Expense(
@@ -117,9 +118,9 @@ class _InputPageState extends State<InputPage> {
 
                 await widget.onSave();
 
-                setState(() {});
+                if (!mounted) return;
 
-                Navigator.pop(context);
+                setState(() {});
               },
               child: const Text("更新"),
             ),
@@ -349,29 +350,10 @@ class _InputPageState extends State<InputPage> {
           // ========================================
           // 今月の収支サマリー
           // ========================================
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Text(
-                    '今月収入: ¥$totalIncome',
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                  Text(
-                    '今月支出: ¥$totalExpense',
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                  Text(
-                    '収支: ¥$balance',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          SummaryCard(
+            totalIncome: totalIncome,
+            totalExpense: totalExpense,
+            balance: balance,
           ),
 
           const SizedBox(height: 16),
