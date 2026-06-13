@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/expense.dart';
 import '../services/category_service.dart';
+import '../services/csv_service.dart';
 
 // ========================================
 // 設定画面
@@ -211,6 +212,20 @@ class _SettingPageState extends State<SettingPage> {
                 )
                 .toList(),
           ),
+        ),
+
+        // csvテスト
+        ElevatedButton(
+          onPressed: () async {
+            final path = await CsvService.saveCsv(widget.expenses);
+
+            if (!mounted) return;
+
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text("保存完了\n$path")));
+          },
+          child: const Text("CSV保存"),
         ),
       ],
     );
