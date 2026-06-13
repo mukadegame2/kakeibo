@@ -27,8 +27,80 @@ class GraphPage extends StatefulWidget {
 // を担当する
 // ========================================
 class _GraphPageState extends State<GraphPage> {
+  // 対象カテゴリ抽出
+  void _showCategoryDetail(String category) {
+    final targetExpenses = widget.expenses.where((expense) {
+      return expense.category == category &&
+          expense.date.year == selectedMonth.year &&
+          expense.date.month == selectedMonth.month &&
+          expense.isIncome == showIncome;
+    }).toList();
+
+    // ソート
+    targetExpenses.sort((a, b) => b.date.compareTo(a.date));
+
+    // 合計金額を計算
+    final total = targetExpenses.fold(
+      0,
+      (sum, expense) => sum + expense.amount,
+    );
+
+    int touchedIndex = -1;
+
+    // ダイアログ
+    showDialog(
+      context: context,
+
+      builder: (_) {
+        return AlertDialog(
+          title: Text(category),
+
+          content: SizedBox(
+            width: 300,
+
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+
+              children: [
+                Text(
+                  "合計 ¥$total",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const Divider(),
+
+                SizedBox(
+                  height: 300,
+
+                  child: ListView(
+                    children: targetExpenses.map((expense) {
+                      return ListTile(
+                        title: Text(expense.memo),
+
+                        subtitle: Text(
+                          "${expense.date.year}/${expense.date.month}/${expense.date.day}",
+                        ),
+
+                        trailing: Text("¥${expense.amount}"),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // 表示中の年月
   DateTime selectedMonth = DateTime.now();
+
+  bool showIncome = false;
 
   // ========================================
   // 画面描画
@@ -51,7 +123,7 @@ class _GraphPageState extends State<GraphPage> {
       }
 
       // 収入はスキップ
-      if (expense.isIncome) {
+      if (expense.isIncome != showIncome) {
         continue;
       }
 
@@ -77,6 +149,7 @@ class _GraphPageState extends State<GraphPage> {
 
     // 合計金額（グラフの割合計算用）
     double total = categoryTotals.values.fold(0, (sum, value) => sum + value);
+    final categoryList = categoryTotals.entries.toList();
 
     // ========================================
     // 集計結果を一覧表示
@@ -89,6 +162,7 @@ class _GraphPageState extends State<GraphPage> {
           // インデックスとデータを取得
           int index = entry.key; // データを取得
           var data = entry.value; // データを取得
+
           // グラフの割合計算
           double percent = data.value / total * 100;
 
@@ -113,6 +187,22 @@ class _GraphPageState extends State<GraphPage> {
       child: Column(
         // グラフと一覧を縦に配置
         children: [
+          // タブ
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text("支出")),
+              ButtonSegment(value: true, label: Text("収入")),
+            ],
+
+            selected: {showIncome},
+
+            onSelectionChanged: (value) {
+              setState(() {
+                showIncome = value.first;
+              });
+            },
+          ),
+
           // 月切替のUI
           MonthSelector(
             selectedMonth: selectedMonth,
@@ -151,38 +241,76 @@ class _GraphPageState extends State<GraphPage> {
           // タイトルとグラフの間の余白
           const SizedBox(height: 20),
 
-          // カテゴリ別集計の一覧表示
+          // グラフ描画
           Expanded(
-            // カテゴリ別集計の一覧表示
-            child: ListView(
-              children: categoryTotals.entries.toList().asMap().entries.map((
-                // インデックスとデータのペアに変換
-                entry, // インデックスとデータを取得
-              ) {
-                int index = entry.key; // インデックスを取得
-                var data = entry.value; // データを取得
+            child: PieChart(
+              PieChartData(
+                sections: sections,
 
-                // 一覧のアイテムを作成
-                return ListTile(
-                  // アイコンを設定（色はグラフと同じ）
-                  leading: CircleAvatar(
-                    radius: 8, // アイコンの半径
-                    backgroundColor:
-                        colors[index % colors.length], // 色を設定（色の数が足りない場合はループ）
-                  ),
+                pieTouchData: PieTouchData(
+                  touchCallback: (event, response) {
+                    if (response == null || response.touchedSection == null) {
+                      return;
+                    }
 
-                  // カテゴリ名をタイトルに表示
-                  title: Text(data.key),
+                    final touchedIndex =
+                        response.touchedSection!.touchedSectionIndex;
 
-                  // 金額を右側に表示
-                  trailing: Text("¥${data.value}"),
-                );
-              }).toList(), // Listに変換
+                    final category = categoryList[touchedIndex].key;
+
+                    Future.microtask(() {
+                      if (!mounted) return;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+  if (!mounted) return;
+  _showCategoryDetail(category);
+});
+                    });
+                  },
+                ),
+              ),
             ),
           ),
 
-          // グラフ描画
-          Expanded(child: PieChart(PieChartData(sections: sections))),
+          // カテゴリー一覧表示
+          Expanded(
+            child: ListView(
+              children: categoryTotals.entries.toList().asMap().entries.map((
+                entry,
+              ) {
+                int index = entry.key;
+                var data = entry.value;
+                double percent = data.value / total * 100;
+
+                return ListTile(
+                  leading: CircleAvatar(
+                    radius: 8,
+                    backgroundColor: colors[index % colors.length],
+                  ),
+
+                  title: Text(data.key),
+
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text("¥${data.value}"),
+                      Text(
+                        "${percent.toStringAsFixed(0)}%",
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  onTap: () {
+                    _showCategoryDetail(data.key);
+                  },
+                );
+              }).toList(),
+            ),
+          ),
         ],
       ),
     );
