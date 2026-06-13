@@ -99,7 +99,10 @@ class _MainScreenState extends State<MainScreen> {
 
       // 設定画面
       case 3:
-        return const SettingPage();
+  return SettingPage(
+    expenses: expenses,
+    onSave: saveExpenses,
+  );
 
       // それ以外は空画面
       default:
