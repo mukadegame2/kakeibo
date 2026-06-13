@@ -17,10 +17,7 @@ class ExpenseCard extends StatelessWidget {
     int dailyTotal = dailyExpenses.fold(
       0,
       (sum, expense) =>
-          sum +
-          (expense.isIncome
-              ? expense.amount
-              : -expense.amount),
+          sum + (expense.isIncome ? expense.amount : -expense.amount),
     );
 
     return Card(
@@ -35,10 +32,7 @@ class ExpenseCard extends StatelessWidget {
           children: [
             Text(
               date,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
 
             const Divider(),

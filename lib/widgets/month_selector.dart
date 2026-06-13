@@ -17,23 +17,14 @@ class MonthSelector extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: onPrevious,
-        ),
+        IconButton(icon: const Icon(Icons.arrow_back), onPressed: onPrevious),
 
         Text(
           "${selectedMonth.year}年${selectedMonth.month}月",
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
 
-        IconButton(
-          icon: const Icon(Icons.arrow_forward),
-          onPressed: onNext,
-        ),
+        IconButton(icon: const Icon(Icons.arrow_forward), onPressed: onNext),
       ],
     );
   }

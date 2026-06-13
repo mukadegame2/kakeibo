@@ -6,7 +6,7 @@
 // インポート
 import 'package:flutter/material.dart';
 
-import 'screens/main_screen.dart';   // メインシーン
+import 'screens/main_screen.dart'; // メインシーン
 
 // ========================================
 // アプリ起動
@@ -31,5 +31,3 @@ class KakeiboApp extends StatelessWidget {
     );
   }
 }
-
-

@@ -214,8 +214,6 @@ class _CalendarPageState extends State<CalendarPage> {
 
     return Column(
       children: [
-        
-
         SummaryCard(income: income, expense: expense),
 
         Expanded(

@@ -261,9 +261,9 @@ class _GraphPageState extends State<GraphPage> {
                     Future.microtask(() {
                       if (!mounted) return;
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-  if (!mounted) return;
-  _showCategoryDetail(category);
-});
+                        if (!mounted) return;
+                        _showCategoryDetail(category);
+                      });
                     });
                   },
                 ),

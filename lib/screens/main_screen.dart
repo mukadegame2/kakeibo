@@ -1,13 +1,12 @@
-import 'package:flutter/material.dart';                       // Flutter UIライブラリ
-import 'package:shared_preferences/shared_preferences.dart';  // データ保存用ライブラリ
-import 'dart:convert';                                        // JSON変換用
+import 'package:flutter/material.dart'; // Flutter UIライブラリ
+import 'package:shared_preferences/shared_preferences.dart'; // データ保存用ライブラリ
+import 'dart:convert'; // JSON変換用
 
-
-import '../models/expense.dart';       // 家計簿データクラス
-import '../pages/input_page.dart';     // 入力画面
-import '../pages/calendar_page.dart';  // カレンダー画面
-import '../pages/graph_page.dart';     // グラフ画面
-import '../pages/setting_page.dart';   // 設定画面
+import '../models/expense.dart'; // 家計簿データクラス
+import '../pages/input_page.dart'; // 入力画面
+import '../pages/calendar_page.dart'; // カレンダー画面
+import '../pages/graph_page.dart'; // グラフ画面
+import '../pages/setting_page.dart'; // 設定画面
 
 // ========================================
 // メイン画面
@@ -99,10 +98,7 @@ class _MainScreenState extends State<MainScreen> {
 
       // 設定画面
       case 3:
-  return SettingPage(
-    expenses: expenses,
-    onSave: saveExpenses,
-  );
+        return SettingPage(expenses: expenses, onSave: saveExpenses);
 
       // それ以外は空画面
       default:
