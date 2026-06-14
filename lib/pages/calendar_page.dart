@@ -32,6 +32,8 @@ class _CalendarPageState extends State<CalendarPage> {
   // 表示中の年月
   DateTime selectedMonth = DateTime.now();
 
+  String searchText = "";
+
   // 選択日の保持
   DateTime? selectedDay;
 
@@ -43,6 +45,13 @@ class _CalendarPageState extends State<CalendarPage> {
     }
 
     return total;
+  }
+
+  List<Expense> _getExpensesForMonth() {
+    return widget.expenses.where((expense) {
+      return expense.date.year == selectedMonth.year &&
+          expense.date.month == selectedMonth.month;
+    }).toList();
   }
 
   void _showEditDialog(Expense expense) {
@@ -199,6 +208,13 @@ class _CalendarPageState extends State<CalendarPage> {
     }).toList();
   }
 
+  @override
+  void initState() {
+    super.initState();
+
+    selectedDay = DateTime.now();
+  }
+
   // ========================================
   // 画面描画
   // ・選択月のデータを日付ごとに集計
@@ -223,6 +239,14 @@ class _CalendarPageState extends State<CalendarPage> {
               e.date.month == selectedMonth.month,
         )
         .fold(0, (sum, e) => sum + e.amount);
+
+    final displayExpenses = searchText.isEmpty
+        ? (selectedDay == null ? <Expense>[] : _getExpensesForDay(selectedDay!))
+        : _getExpensesForMonth().where((expense) {
+            return expense.memo.contains(searchText) ||
+                expense.category.contains(searchText) ||
+                expense.amount.toString().contains(searchText);
+          }).toList();
 
     final groupedExpenses = _groupExpensesByDate();
 
@@ -296,10 +320,6 @@ class _CalendarPageState extends State<CalendarPage> {
                 },
               ),
 
-              eventLoader: (day) {
-                return _getExpensesForDay(day);
-              },
-
               selectedDayPredicate: (day) {
                 return isSameDay(selectedDay, day);
               },
@@ -318,11 +338,13 @@ class _CalendarPageState extends State<CalendarPage> {
             child: entries.isEmpty
                 ? const Center(child: Text("この月のデータはありません"))
                 : ListView(
-                    children: _getExpensesForDay(selectedDay!)
+                    children: displayExpenses
                         .map(
                           (expense) => ListTile(
                             title: Text(expense.category),
-                            subtitle: Text(expense.memo),
+                            subtitle: Text(
+                              "${expense.date.month}/${expense.date.day}  ${expense.memo}",
+                            ),
 
                             trailing: Text(
                               expense.isIncome
@@ -345,10 +367,27 @@ class _CalendarPageState extends State<CalendarPage> {
     // データがある月
     return Column(
       children: [
-        SummaryCard(income: income, expense: expense),
+        Padding(
+          padding: const EdgeInsets.all(8),
 
+          child: TextField(
+            decoration: const InputDecoration(
+              labelText: "検索",
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
+            ),
+
+            onChanged: (value) {
+              setState(() {
+                searchText = value;
+              });
+            },
+          ),
+        ),
+
+        SummaryCard(income: income, expense: expense),
         Expanded(
-          flex: 3,
+          flex: 2,
           child: TableCalendar(
             calendarFormat: CalendarFormat.month,
 
@@ -386,10 +425,6 @@ class _CalendarPageState extends State<CalendarPage> {
               },
             ),
 
-            eventLoader: (day) {
-              return _getExpensesForDay(day);
-            },
-
             selectedDayPredicate: (day) {
               return isSameDay(selectedDay, day);
             },
@@ -404,14 +439,22 @@ class _CalendarPageState extends State<CalendarPage> {
         ),
 
         if (selectedDay != null)
-          Expanded(
-            flex: 1,
+          SizedBox(
+            height: 200,
             child: ListView(
-              children: _getExpensesForDay(selectedDay!)
+              children: displayExpenses
+                  .where((expense) {
+                    return expense.memo.contains(searchText) ||
+                        expense.category.contains(searchText) ||
+                        expense.amount.toString().contains(searchText);
+                  })
+                  .toList()
                   .map(
                     (expense) => ListTile(
                       title: Text(expense.category),
-                      subtitle: Text(expense.memo),
+                      subtitle: Text(
+                        "${expense.date.month}/${expense.date.day}  ${expense.memo}",
+                      ),
 
                       trailing: Text(
                         expense.isIncome
