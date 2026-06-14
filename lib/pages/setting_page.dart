@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../models/expense.dart';
 import '../services/category_service.dart';
 import '../services/csv_service.dart';
+import 'dart:io';
+import '../services/csv_import_service.dart';
+import 'package:file_picker/file_picker.dart';
 
 // ========================================
 // 設定画面
@@ -37,6 +40,41 @@ class _SettingPageState extends State<SettingPage> {
     categories = await CategoryService.loadCategories();
 
     setState(() {});
+  }
+
+  Future<void> importCsvFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+    );
+
+    if (result == null) {
+      return;
+    }
+
+    final path = result.files.single.path;
+
+    if (path == null) {
+      return;
+    }
+
+    final csvText = await File(path).readAsString();
+
+    final importedExpenses = CsvImportService.importCsv(csvText);
+
+    widget.expenses.clear();
+
+    widget.expenses.addAll(importedExpenses);
+
+    await widget.onSave();
+
+    if (!mounted) return;
+
+    setState(() {});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("${importedExpenses.length}件のデータを読み込みました")),
+    );
   }
 
   void _showEditCategoryDialog(String oldCategory) {
@@ -163,6 +201,12 @@ class _SettingPageState extends State<SettingPage> {
                       icon: const Icon(Icons.delete),
 
                       onPressed: () async {
+                        if (category == "その他") {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("「その他」は削除できません")),
+                          );
+                          return;
+                        }
                         if (categories.length <= 1) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text("最後のカテゴリは削除できません")),
@@ -201,9 +245,24 @@ class _SettingPageState extends State<SettingPage> {
                           return;
                         }
 
+                        // 削除時にデータ移行
+                        for (int i = 0; i < widget.expenses.length; i++) {
+                          if (widget.expenses[i].category == category) {
+                            widget.expenses[i] = Expense(
+                              amount: widget.expenses[i].amount,
+                              category: "その他",
+                              memo: widget.expenses[i].memo,
+                              date: widget.expenses[i].date,
+                              isIncome: widget.expenses[i].isIncome,
+                            );
+                          }
+                        }
+
                         categories.remove(category);
 
                         await CategoryService.saveCategories(categories);
+
+                        await widget.onSave();
 
                         setState(() {});
                       },
@@ -214,7 +273,7 @@ class _SettingPageState extends State<SettingPage> {
           ),
         ),
 
-        // csvテスト
+        // csv保存（出力）
         ElevatedButton(
           onPressed: () async {
             final path = await CsvService.saveCsv(widget.expenses);
@@ -226,6 +285,14 @@ class _SettingPageState extends State<SettingPage> {
             ).showSnackBar(SnackBar(content: Text("保存完了\n$path")));
           },
           child: const Text("CSV保存"),
+        ),
+
+        // csvインポート
+        ElevatedButton(
+          onPressed: () async {
+            await importCsvFile();
+          },
+          child: const Text("CSVインポート"),
         ),
       ],
     );

@@ -90,7 +90,7 @@ class _MainScreenState extends State<MainScreen> {
 
       // カレンダー画面
       case 1:
-        return CalendarPage(expenses: expenses);
+        return CalendarPage(expenses: expenses, onSave: saveExpenses);
 
       // グラフ画面
       case 2:

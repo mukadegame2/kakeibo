@@ -25,6 +25,8 @@ dependencies:
 
   downloads_path_provider_28: ^0.1.2
 
+  file_picker: ^10.3.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

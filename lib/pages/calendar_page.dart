@@ -10,11 +10,11 @@ import '../widgets/month_selector.dart';
 // 日付ごとの収支確認を行う画面
 // ========================================
 class CalendarPage extends StatefulWidget {
-  // 家計簿データのリスト
   final List<Expense> expenses;
+  final Future<void> Function() onSave;
 
   // コンストラクタ
-  const CalendarPage({super.key, required this.expenses});
+  const CalendarPage({super.key, required this.expenses, required this.onSave});
 
   // 状態管理クラスの生成
   @override
@@ -43,6 +43,123 @@ class _CalendarPageState extends State<CalendarPage> {
     }
 
     return total;
+  }
+
+  void _showEditDialog(Expense expense) {
+    DateTime editDate = expense.date;
+    final amountController = TextEditingController(
+      text: expense.amount.toString(),
+    );
+
+    final memoController = TextEditingController(text: expense.memo);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("編集"),
+
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "金額"),
+              ),
+
+              const SizedBox(height: 16),
+
+              StatefulBuilder(
+                builder: (context, setDialogState) {
+                  return ListTile(
+                    leading: const Icon(Icons.calendar_month),
+                    title: Text(
+                      "${editDate.year}/${editDate.month}/${editDate.day}",
+                    ),
+                    trailing: const Icon(Icons.edit),
+                    onTap: () async {
+                      print("タップされた");
+                      final pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: editDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2100),
+                      );
+
+                      if (pickedDate != null) {
+                        setDialogState(() {
+                          editDate = pickedDate;
+                        });
+                      }
+                    },
+                  );
+                },
+              ),
+
+              TextField(
+                controller: memoController,
+                decoration: const InputDecoration(labelText: "メモ"),
+              ),
+            ],
+          ),
+
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text("キャンセル"),
+            ),
+
+            // 削除ボタン
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+
+              onPressed: () async {
+                widget.expenses.remove(expense);
+
+                await widget.onSave();
+
+                if (!mounted) return;
+
+                Navigator.pop(dialogContext);
+
+                setState(() {});
+              },
+
+              child: const Text("削除"),
+            ),
+
+            // 更新ボタン
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+
+                final index = widget.expenses.indexOf(expense);
+
+                widget.expenses[index] = Expense(
+                  amount: int.parse(amountController.text),
+                  category: expense.category,
+                  memo: memoController.text,
+                  date: editDate,
+                  isIncome: expense.isIncome,
+                );
+
+                widget.expenses.sort((a, b) => b.date.compareTo(a.date));
+
+                await widget.onSave();
+
+                if (!mounted) return;
+
+                setState(() {});
+              },
+              child: const Text("更新"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Map<String, List<Expense>> _groupExpensesByDate() {
@@ -111,7 +228,10 @@ class _CalendarPageState extends State<CalendarPage> {
 
     final entries = groupedExpenses.entries.toList();
     entries.sort((a, b) => b.key.compareTo(a.key));
+
+    // データがあるかどうか判別
     if (entries.isEmpty) {
+      // データがない月
       return Column(
         children: [
           MonthSelector(
@@ -146,7 +266,7 @@ class _CalendarPageState extends State<CalendarPage> {
               lastDay: DateTime(2100),
               focusedDay: selectedMonth,
 
-              rowHeight: 70,
+              rowHeight: 40,
 
               calendarBuilders: CalendarBuilders(
                 defaultBuilder: (context, day, focusedDay) {
@@ -203,11 +323,16 @@ class _CalendarPageState extends State<CalendarPage> {
                           (expense) => ListTile(
                             title: Text(expense.category),
                             subtitle: Text(expense.memo),
+
                             trailing: Text(
                               expense.isIncome
                                   ? "+¥${expense.amount}"
                                   : "-¥${expense.amount}",
                             ),
+
+                            onTap: () {
+                              _showEditDialog(expense);
+                            },
                           ),
                         )
                         .toList(),
@@ -217,6 +342,7 @@ class _CalendarPageState extends State<CalendarPage> {
       );
     }
 
+    // データがある月
     return Column(
       children: [
         SummaryCard(income: income, expense: expense),
@@ -231,7 +357,7 @@ class _CalendarPageState extends State<CalendarPage> {
             lastDay: DateTime(2100),
             focusedDay: selectedMonth,
 
-            rowHeight: 50,
+            rowHeight: 40,
 
             calendarBuilders: CalendarBuilders(
               defaultBuilder: (context, day, focusedDay) {
@@ -286,11 +412,16 @@ class _CalendarPageState extends State<CalendarPage> {
                     (expense) => ListTile(
                       title: Text(expense.category),
                       subtitle: Text(expense.memo),
+
                       trailing: Text(
                         expense.isIncome
                             ? "+¥${expense.amount}"
                             : "-¥${expense.amount}",
                       ),
+
+                      onTap: () {
+                        _showEditDialog(expense);
+                      },
                     ),
                   )
                   .toList(),
