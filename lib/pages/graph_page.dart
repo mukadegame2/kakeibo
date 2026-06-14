@@ -4,6 +4,7 @@ import '../services/category_service.dart';
 
 import '../models/expense.dart';
 import '../widgets/month_selector.dart';
+import 'category_detail_page.dart';
 
 // ========================================
 // グラフ画面
@@ -451,7 +452,15 @@ class _GraphPageState extends State<GraphPage> {
 
                           final category = categoryList[touchedIndex].key;
 
-                          _showCategoryDetail(category);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CategoryDetailPage(
+                                category: category,
+                                expenses: widget.expenses,
+                              ),
+                            ),
+                          );
                         },
                       ),
                     ),
@@ -496,7 +505,15 @@ class _GraphPageState extends State<GraphPage> {
                             ),
 
                             onTap: () {
-                              _showCategoryDetail(data.key);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CategoryDetailPage(
+                                    category: data.key,
+                                    expenses: widget.expenses,
+                                  ),
+                                ),
+                              );
                             },
                           );
                         })
