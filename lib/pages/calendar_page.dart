@@ -137,11 +137,16 @@ class _CalendarPageState extends State<CalendarPage> {
           SummaryCard(income: income, expense: expense),
 
           Expanded(
-            flex: 2,
+            flex: 1,
             child: TableCalendar(
+              calendarFormat: CalendarFormat.month,
+
+              availableCalendarFormats: const {CalendarFormat.month: '月'},
               firstDay: DateTime(2020),
               lastDay: DateTime(2100),
               focusedDay: selectedMonth,
+
+              rowHeight: 70,
 
               calendarBuilders: CalendarBuilders(
                 defaultBuilder: (context, day, focusedDay) {
@@ -217,11 +222,16 @@ class _CalendarPageState extends State<CalendarPage> {
         SummaryCard(income: income, expense: expense),
 
         Expanded(
-          flex: 2,
+          flex: 3,
           child: TableCalendar(
+            calendarFormat: CalendarFormat.month,
+
+            availableCalendarFormats: const {CalendarFormat.month: '月'},
             firstDay: DateTime(2020),
             lastDay: DateTime(2100),
             focusedDay: selectedMonth,
+
+            rowHeight: 50,
 
             calendarBuilders: CalendarBuilders(
               defaultBuilder: (context, day, focusedDay) {

@@ -195,8 +195,9 @@ class _InputPageState extends State<InputPage> {
         )
         .fold(0, (sum, e) => sum + e.amount);
 
-    if (_categories.isEmpty)
+    if (_categories.isEmpty) {
       return const Center(child: CircularProgressIndicator());
+    }
 
     // ========================================
     // 収支計算

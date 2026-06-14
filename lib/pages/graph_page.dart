@@ -28,7 +28,7 @@ class GraphPage extends StatefulWidget {
 // ========================================
 class _GraphPageState extends State<GraphPage> {
   // 対象カテゴリ抽出
-  void _showCategoryDetail(String category) {
+  Future<void> _showCategoryDetail(String category) async {
     final targetExpenses = widget.expenses.where((expense) {
       return expense.category == category &&
           expense.date.year == selectedMonth.year &&
@@ -45,10 +45,8 @@ class _GraphPageState extends State<GraphPage> {
       (sum, expense) => sum + expense.amount,
     );
 
-    int touchedIndex = -1;
-
     // ダイアログ
-    showDialog(
+    await showDialog(
       context: context,
 
       builder: (_) {
@@ -256,15 +254,17 @@ class _GraphPageState extends State<GraphPage> {
                     final touchedIndex =
                         response.touchedSection!.touchedSectionIndex;
 
-                    final category = categoryList[touchedIndex].key;
+                    if (touchedIndex < 0 ||
+                        touchedIndex >= categoryList.length) {
+                      return;
+                    }
 
-                    Future.microtask(() {
-                      if (!mounted) return;
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted) return;
-                        _showCategoryDetail(category);
-                      });
-                    });
+                    if (event is! FlTapUpEvent) {
+                      return;
+                    }
+
+                    final category = categoryList[touchedIndex].key;
+                    _showCategoryDetail(category);
                   },
                 ),
               ),
