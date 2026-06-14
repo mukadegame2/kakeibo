@@ -94,7 +94,7 @@ class _MainScreenState extends State<MainScreen> {
 
       // グラフ画面
       case 2:
-        return GraphPage(expenses: expenses);
+        return GraphPage(expenses: expenses, onSave: saveExpenses);
 
       // 設定画面
       case 3:

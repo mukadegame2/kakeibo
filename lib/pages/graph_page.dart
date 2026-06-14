@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../services/category_service.dart';
 
 import '../models/expense.dart';
 import '../widgets/month_selector.dart';
@@ -11,9 +12,10 @@ import '../widgets/month_selector.dart';
 class GraphPage extends StatefulWidget {
   // 家計簿データのリスト
   final List<Expense> expenses;
+  final Future<void> Function() onSave;
 
   // コンストラクタ
-  const GraphPage({super.key, required this.expenses});
+  const GraphPage({super.key, required this.expenses, required this.onSave});
 
   @override // 状態管理クラスの生成
   State<GraphPage> createState() => _GraphPageState();
@@ -27,6 +29,161 @@ class GraphPage extends StatefulWidget {
 // を担当する
 // ========================================
 class _GraphPageState extends State<GraphPage> {
+  List<String> categories = [];
+  Future<void> loadCategories() async {
+    categories = await CategoryService.loadCategories();
+
+    if (!mounted) return;
+
+    setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadCategories();
+  }
+
+  // 削除
+  Future<void> _deleteExpense(Expense expense) async {
+    widget.expenses.remove(expense);
+
+    await widget.onSave();
+
+    if (!mounted) return;
+
+    setState(() {});
+  }
+
+  Future<void> _showEditDialog(Expense expense) async {
+    final amountController = TextEditingController(
+      text: expense.amount.toString(),
+    );
+
+    final memoController = TextEditingController(text: expense.memo);
+
+    DateTime editDate = expense.date;
+
+    String selectedCategory = expense.category;
+
+    await showDialog(
+      context: context,
+
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("編集"),
+
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "金額"),
+              ),
+
+              const SizedBox(height: 12),
+
+              DropdownButtonFormField<String>(
+                initialValue: selectedCategory,
+
+                decoration: const InputDecoration(labelText: "カテゴリ"),
+
+                items: categories
+                    .map(
+                      (category) => DropdownMenuItem(
+                        value: category,
+                        child: Text(category),
+                      ),
+                    )
+                    .toList(),
+
+                onChanged: (value) {
+                  if (value == null) return;
+
+                  selectedCategory = value;
+                },
+              ),
+
+              const SizedBox(height: 12),
+
+              StatefulBuilder(
+                builder: (context, setDialogState) {
+                  return ListTile(
+                    leading: const Icon(Icons.calendar_month),
+
+                    title: Text(
+                      "${editDate.year}/${editDate.month}/${editDate.day}",
+                    ),
+
+                    trailing: const Icon(Icons.edit),
+
+                    onTap: () async {
+                      final pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: editDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2100),
+                      );
+
+                      if (pickedDate != null) {
+                        setDialogState(() {
+                          editDate = pickedDate;
+                        });
+                      }
+                    },
+                  );
+                },
+              ),
+
+              TextField(
+                controller: memoController,
+                decoration: const InputDecoration(labelText: "メモ"),
+              ),
+            ],
+          ),
+
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text("キャンセル"),
+            ),
+
+            ElevatedButton(
+              onPressed: () async {
+                final index = widget.expenses.indexOf(expense);
+
+                widget.expenses[index] = Expense(
+                  amount: int.parse(amountController.text),
+
+                  category: selectedCategory,
+
+                  memo: memoController.text,
+
+                  date: editDate,
+
+                  isIncome: expense.isIncome,
+                );
+
+                await widget.onSave();
+
+                if (!mounted) return;
+
+                setState(() {});
+
+                Navigator.pop(dialogContext);
+              },
+
+              child: const Text("保存"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // 対象カテゴリ抽出
   Future<void> _showCategoryDetail(String category) async {
     final targetExpenses = widget.expenses.where((expense) {
@@ -82,7 +239,38 @@ class _GraphPageState extends State<GraphPage> {
                           "${expense.date.year}/${expense.date.month}/${expense.date.day}",
                         ),
 
-                        trailing: Text("¥${expense.amount}"),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text("¥${expense.amount}"),
+
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () async {
+                                await _showEditDialog(expense);
+
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
+
+                                _showCategoryDetail(category);
+                              },
+                            ),
+
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () async {
+                                await _deleteExpense(expense);
+
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
+
+                                _showCategoryDetail(category);
+                              },
+                            ),
+                          ],
+                        ),
                       );
                     }).toList(),
                   ),
@@ -128,11 +316,6 @@ class _GraphPageState extends State<GraphPage> {
       // カテゴリ別に金額を加算
       categoryTotals[expense.category] =
           (categoryTotals[expense.category] ?? 0) + expense.amount;
-    }
-
-    // データがない場合はメッセージ表示
-    if (categoryTotals.isEmpty) {
-      return const Center(child: Text("データがありません"));
     }
 
     // グラフの色設定
@@ -241,75 +424,84 @@ class _GraphPageState extends State<GraphPage> {
 
           // グラフ描画
           Expanded(
-            child: PieChart(
-              PieChartData(
-                sections: sections,
+            child: categoryTotals.isEmpty
+                ? const Center(child: Text("この月のデータはありません"))
+                : PieChart(
+                    PieChartData(
+                      sections: sections,
 
-                pieTouchData: PieTouchData(
-                  touchCallback: (event, response) {
-                    if (response == null || response.touchedSection == null) {
-                      return;
-                    }
+                      pieTouchData: PieTouchData(
+                        touchCallback: (event, response) {
+                          if (response == null ||
+                              response.touchedSection == null) {
+                            return;
+                          }
 
-                    final touchedIndex =
-                        response.touchedSection!.touchedSectionIndex;
+                          final touchedIndex =
+                              response.touchedSection!.touchedSectionIndex;
 
-                    if (touchedIndex < 0 ||
-                        touchedIndex >= categoryList.length) {
-                      return;
-                    }
+                          if (touchedIndex < 0 ||
+                              touchedIndex >= categoryList.length) {
+                            return;
+                          }
 
-                    if (event is! FlTapUpEvent) {
-                      return;
-                    }
+                          if (event is! FlTapUpEvent) {
+                            return;
+                          }
 
-                    final category = categoryList[touchedIndex].key;
-                    _showCategoryDetail(category);
-                  },
-                ),
-              ),
-            ),
+                          final category = categoryList[touchedIndex].key;
+
+                          _showCategoryDetail(category);
+                        },
+                      ),
+                    ),
+                  ),
           ),
 
           // カテゴリー一覧表示
           Expanded(
-            child: ListView(
-              children: categoryTotals.entries.toList().asMap().entries.map((
-                entry,
-              ) {
-                int index = entry.key;
-                var data = entry.value;
-                double percent = data.value / total * 100;
+            child: categoryTotals.isEmpty
+                ? const SizedBox()
+                : ListView(
+                    children: categoryTotals.entries
+                        .toList()
+                        .asMap()
+                        .entries
+                        .map((entry) {
+                          int index = entry.key;
+                          var data = entry.value;
+                          double percent = data.value / total * 100;
 
-                return ListTile(
-                  leading: CircleAvatar(
-                    radius: 8,
-                    backgroundColor: colors[index % colors.length],
+                          return ListTile(
+                            leading: CircleAvatar(
+                              radius: 8,
+                              backgroundColor: colors[index % colors.length],
+                            ),
+
+                            title: Text(data.key),
+
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text("¥${data.value}"),
+                                Text(
+                                  "${percent.toStringAsFixed(0)}%",
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            onTap: () {
+                              _showCategoryDetail(data.key);
+                            },
+                          );
+                        })
+                        .toList(),
                   ),
-
-                  title: Text(data.key),
-
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text("¥${data.value}"),
-                      Text(
-                        "${percent.toStringAsFixed(0)}%",
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  onTap: () {
-                    _showCategoryDetail(data.key);
-                  },
-                );
-              }).toList(),
-            ),
           ),
         ],
       ),
