@@ -335,6 +335,29 @@ class _GraphPageState extends State<GraphPage> {
     double total = categoryTotals.values.fold(0, (sum, value) => sum + value);
     final categoryList = categoryTotals.entries.toList();
 
+    final rankingList = categoryTotals.entries.toList();
+    rankingList.sort((a, b) => b.value.compareTo(a.value));
+
+    final income = widget.expenses
+        .where(
+          (e) =>
+              e.isIncome &&
+              e.date.year == selectedMonth.year &&
+              e.date.month == selectedMonth.month,
+        )
+        .fold(0, (sum, e) => sum + e.amount);
+
+    final expense = widget.expenses
+        .where(
+          (e) =>
+              !e.isIncome &&
+              e.date.year == selectedMonth.year &&
+              e.date.month == selectedMonth.month,
+        )
+        .fold(0, (sum, e) => sum + e.amount);
+
+    final balance = income - expense;
+
     // ========================================
     // 集計結果を一覧表示
     // ========================================
@@ -413,6 +436,26 @@ class _GraphPageState extends State<GraphPage> {
           // 月切替とグラフの間の余白
           const SizedBox(height: 20),
 
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  Text("収入 : ¥$income"),
+                  Text("支出 : ¥$expense"),
+
+                  Text(
+                    "収支 : ¥$balance",
+                    style: TextStyle(
+                      color: balance >= 0 ? Colors.blue : Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           // カテゴリ別集計のタイトル
           const Text(
             "カテゴリ別支出",
@@ -423,7 +466,14 @@ class _GraphPageState extends State<GraphPage> {
           ),
 
           // タイトルとグラフの間の余白
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
+
+          const Text(
+            "カテゴリランキング",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(height: 5),
 
           // グラフ描画
           Expanded(
@@ -471,57 +521,59 @@ class _GraphPageState extends State<GraphPage> {
           ),
 
           // カテゴリー一覧表示
+          // カテゴリランキング
           Expanded(
             child: categoryTotals.isEmpty
                 ? const SizedBox()
-                : ListView(
-                    children: categoryTotals.entries
-                        .toList()
-                        .asMap()
-                        .entries
-                        .map((entry) {
-                          int index = entry.key;
-                          var data = entry.value;
-                          double percent = data.value / total * 100;
+                : ListView.builder(
+                    itemCount: rankingList.length,
+                    itemBuilder: (context, index) {
+                      final data = rankingList[index];
 
-                          return ListTile(
-                            leading: CircleAvatar(
-                              radius: 8,
-                              backgroundColor: colors[index % colors.length],
+                      double percent = total == 0
+                          ? 0
+                          : data.value / total * 100;
+
+                      return ListTile(
+                        leading: SizedBox(
+                          width: 40,
+                          child: Center(
+                            child: Text(
+                              index == 0
+                                  ? "🥇"
+                                  : index == 1
+                                  ? "🥈"
+                                  : index == 2
+                                  ? "🥉"
+                                  : "${index + 1}",
+                              style: const TextStyle(fontSize: 28),
                             ),
+                          ),
+                        ),
 
-                            title: Text(data.key),
+                        title: Text(data.key),
 
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text("¥${data.value}"),
-                                Text(
-                                  "${percent.toStringAsFixed(0)}%",
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
+                        subtitle: Text("${percent.toStringAsFixed(1)}%"),
+
+                        trailing: Text(
+                          "¥${data.value}",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CategoryDetailPage(
+                                category: data.key,
+                                expenses: widget.expenses,
+                                onSave: widget.onSave,
+                              ),
                             ),
-
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => CategoryDetailPage(
-                                    category: data.key,
-                                    expenses: widget.expenses,
-                                    onSave: widget.onSave,
-                                  ),
-                                ),
-                              );
-                            },
                           );
-                        })
-                        .toList(),
+                        },
+                      );
+                    },
                   ),
           ),
         ],
