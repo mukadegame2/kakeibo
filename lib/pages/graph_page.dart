@@ -297,7 +297,9 @@ class _GraphPageState extends State<GraphPage> {
   @override
   Widget build(BuildContext context) {
     // カテゴリごとの支出合計
-    Map<String, int> categoryTotals = {};
+    Map<String, int> categoryTotals = {
+      for (var category in categories) category: 0,
+    };
 
     // ========================================
     // 支出データをカテゴリ別に集計
@@ -458,6 +460,7 @@ class _GraphPageState extends State<GraphPage> {
                               builder: (_) => CategoryDetailPage(
                                 category: category,
                                 expenses: widget.expenses,
+                                onSave: widget.onSave,
                               ),
                             ),
                           );
@@ -511,6 +514,7 @@ class _GraphPageState extends State<GraphPage> {
                                   builder: (_) => CategoryDetailPage(
                                     category: data.key,
                                     expenses: widget.expenses,
+                                    onSave: widget.onSave,
                                   ),
                                 ),
                               );
