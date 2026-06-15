@@ -58,6 +58,43 @@ class _SettingPageState extends State<SettingPage> {
       return;
     }
 
+    final fileName = result.files.single.name;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("CSVインポート確認"),
+
+          content: Text(
+            "以下のファイルを読み込みます。\n\n"
+            "$fileName\n\n"
+            "現在の家計簿データは上書きされます。",
+          ),
+
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text("キャンセル"),
+            ),
+
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: const Text("インポート"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) {
+      return;
+    }
+
     final csvText = await File(path).readAsString();
 
     final importedExpenses = CsvImportService.importCsv(csvText);
