@@ -131,6 +131,11 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
           expense.date.month == selectedMonth.month;
     }).toList();
 
+    final monthTotal = monthExpenses.fold(
+      0,
+      (sum, expense) => sum + expense.amount,
+    );
+
     monthExpenses.sort((a, b) => b.date.compareTo(a.date));
 
     return Scaffold(
@@ -191,7 +196,16 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
               "${selectedMonth.month}月",
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
+
+            Text(
+              "合計 ¥$monthTotal",
+              style: const TextStyle(
+                fontSize: 18,
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
 
             Expanded(
               child: ListView(
