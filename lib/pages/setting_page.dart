@@ -371,58 +371,99 @@ class _SettingPageState extends State<SettingPage> {
           ),
         ),
 
-        // csv保存（出力）
-        ElevatedButton(
-          onPressed: () async {
-            final path = await CsvService.saveCsv(widget.expenses);
+        _buildSectionTitle("データ管理"),
 
-            if (!mounted) return;
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () async {
+                  try {
+                    final path = await BackupService.saveBackup(
+                      widget.expenses,
+                    );
 
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text("保存完了\n$path")));
-          },
-          child: const Text("CSV保存"),
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("バックアップを作成しました\n$path")),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("バックアップ作成に失敗しました")),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.backup),
+                label: const Text("バックアップ作成"),
+              ),
+
+              const SizedBox(height: 8),
+
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await importCsvFile(isBackupRestore: true);
+                },
+                icon: const Icon(Icons.restore),
+                label: const Text("バックアップ復元"),
+              ),
+            ],
+          ),
         ),
 
-        // バックアップ保存
-        ElevatedButton(
-          onPressed: () async {
-            try {
-              final path = await BackupService.saveBackup(widget.expenses);
+        _buildSectionTitle("CSV"),
 
-              if (!mounted) return;
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final path = await CsvService.saveCsv(widget.expenses);
 
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text("バックアップを作成しました\n$path")));
-            } catch (e) {
-              if (!mounted) return;
+                  if (!mounted) return;
 
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text("バックアップ作成に失敗しました\n$e")));
-            }
-          },
-          child: const Text("バックアップ作成"),
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text("CSV保存完了\n$path")));
+                },
+                icon: const Icon(Icons.file_download),
+                label: const Text("CSV保存"),
+              ),
+
+              const SizedBox(height: 8),
+
+              OutlinedButton.icon(
+                onPressed: () async {
+                  await importCsvFile();
+                },
+                icon: const Icon(Icons.file_upload),
+                label: const Text("CSVインポート"),
+              ),
+            ],
+          ),
         ),
 
-        // csvインポート
-        ElevatedButton(
-          onPressed: () async {
-            await importCsvFile();
-          },
-          child: const Text("CSVインポート"),
-        ),
-
-        // バックアップ復元ボタン
-        ElevatedButton(
-          onPressed: () async {
-            await importCsvFile(isBackupRestore: true);
-          },
-          child: const Text("バックアップ復元"),
-        ),
+        const SizedBox(height: 16),
       ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 4),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
     );
   }
 }
