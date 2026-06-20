@@ -4,6 +4,7 @@ import '../services/category_service.dart';
 
 import '../models/expense.dart';
 import '../widgets/month_selector.dart';
+import '../widgets/monthly_balance_chart.dart';
 import 'category_detail_page.dart';
 
 // ========================================
@@ -335,7 +336,10 @@ class _GraphPageState extends State<GraphPage> {
     double total = categoryTotals.values.fold(0, (sum, value) => sum + value);
     final categoryList = categoryTotals.entries.toList();
 
-    final rankingList = categoryTotals.entries.toList();
+    final rankingList = categoryTotals.entries
+        .where((entry) => entry.value > 0)
+        .toList();
+
     rankingList.sort((a, b) => b.value.compareTo(a.value));
 
     final income = widget.expenses
@@ -371,7 +375,7 @@ class _GraphPageState extends State<GraphPage> {
           var data = entry.value; // データを取得
 
           // グラフの割合計算
-          double percent = data.value / total * 100;
+          double percent = total == 0 ? 0 : data.value / total * 100;
 
           // グラフのセクションデータを作成
           return PieChartSectionData(
@@ -386,7 +390,7 @@ class _GraphPageState extends State<GraphPage> {
     // ========================================
 
     // グラフ描画
-    return Padding(
+    return SingleChildScrollView(
       // 画面全体の余白
       padding: const EdgeInsets.all(16),
 
@@ -476,8 +480,9 @@ class _GraphPageState extends State<GraphPage> {
           const SizedBox(height: 5),
 
           // グラフ描画
-          Expanded(
-            child: categoryTotals.isEmpty
+          SizedBox(
+            height: 260,
+            child: total == 0
                 ? const Center(child: Text("この月のデータはありません"))
                 : PieChart(
                     PieChartData(
@@ -520,12 +525,26 @@ class _GraphPageState extends State<GraphPage> {
                   ),
           ),
 
+          const SizedBox(height: 8),
+
+          const Text(
+            "月別収支推移",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+
+          MonthlyBalanceChart(expenses: widget.expenses),
+
+          const SizedBox(height: 8),
+
           // カテゴリー一覧表示
           // カテゴリランキング
-          Expanded(
-            child: categoryTotals.isEmpty
+          SizedBox(
+            height: 420,
+            child: total == 0
                 ? const SizedBox()
                 : ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
                     itemCount: rankingList.length,
                     itemBuilder: (context, index) {
                       final data = rankingList[index];
