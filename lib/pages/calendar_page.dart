@@ -5,6 +5,8 @@ import '../models/expense.dart';
 import '../widgets/summary_card.dart';
 import '../widgets/month_selector.dart';
 import '../services/category_helper.dart';
+import '../services/category_service.dart';
+import '../widgets/expense_edit_dialog.dart';
 
 // ========================================
 // カレンダー画面
@@ -38,6 +40,16 @@ class _CalendarPageState extends State<CalendarPage> {
   // 選択日の保持
   DateTime? selectedDay;
 
+  List<String> categories = [];
+
+  Future<void> _loadCategories() async {
+    categories = await CategoryService.loadCategories();
+
+    if (!mounted) return;
+
+    setState(() {});
+  }
+
   int _getDailyTotal(DateTime day) {
     int total = 0;
 
@@ -56,117 +68,38 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> _showEditDialog(Expense expense) async {
-    DateTime editDate = expense.date;
-
-    final amountController = TextEditingController(
-      text: expense.amount.toString(),
-    );
-
-    final memoController = TextEditingController(text: expense.memo);
-
-    await showDialog(
+    final updatedExpense = await showExpenseEditDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text("編集"),
-
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: "金額"),
-              ),
-
-              const SizedBox(height: 16),
-
-              StatefulBuilder(
-                builder: (context, setDialogState) {
-                  return ListTile(
-                    leading: const Icon(Icons.calendar_month),
-                    title: Text(
-                      "${editDate.year}/${editDate.month}/${editDate.day}",
-                    ),
-                    trailing: const Icon(Icons.edit),
-                    onTap: () async {
-                      final pickedDate = await showDatePicker(
-                        context: dialogContext,
-                        initialDate: editDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2100),
-                      );
-
-                      if (pickedDate != null) {
-                        setDialogState(() {
-                          editDate = pickedDate;
-                        });
-                      }
-                    },
-                  );
-                },
-              ),
-
-              TextField(
-                controller: memoController,
-                decoration: const InputDecoration(labelText: "メモ"),
-              ),
-            ],
-          ),
-
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text("キャンセル"),
-            ),
-
-            ElevatedButton(
-              onPressed: () async {
-                final amount = int.tryParse(amountController.text.trim());
-
-                if (amount == null || amount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("金額は1以上の数字で入力してください")),
-                  );
-                  return;
-                }
-
-                final index = widget.expenses.indexOf(expense);
-
-                if (index == -1) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("編集対象のデータが見つかりませんでした")),
-                  );
-                  return;
-                }
-
-                widget.expenses[index] = expense.copyWith(
-                  amount: amount,
-                  memo: memoController.text,
-                  date: editDate,
-                );
-
-                widget.expenses.sort((a, b) => b.date.compareTo(a.date));
-
-                await widget.onSave();
-
-                if (!mounted) return;
-
-                setState(() {});
-
-                Navigator.pop(dialogContext);
-              },
-              child: const Text("更新"),
-            ),
-          ],
-        );
-      },
+      expense: expense,
+      categories: categories,
+      canEditDate: true,
+      canEditCategory: true,
     );
 
-    amountController.dispose();
-    memoController.dispose();
+    if (updatedExpense == null) {
+      return;
+    }
+
+    final index = widget.expenses.indexOf(expense);
+
+    if (index == -1) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("編集対象のデータが見つかりませんでした")));
+      return;
+    }
+
+    widget.expenses[index] = updatedExpense;
+
+    widget.expenses.sort((a, b) => b.date.compareTo(a.date));
+
+    await widget.onSave();
+
+    if (!mounted) return;
+
+    setState(() {});
   }
 
   List<Expense> _getExpensesForDay(DateTime day) {
@@ -263,6 +196,7 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
 
     selectedDay = DateTime.now();
+    _loadCategories();
   }
 
   // ========================================

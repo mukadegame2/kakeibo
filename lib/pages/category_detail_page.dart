@@ -3,6 +3,8 @@ import '../services/category_helper.dart';
 
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../services/category_service.dart';
+import '../widgets/expense_edit_dialog.dart';
 
 class CategoryDetailPage extends StatefulWidget {
   final String category;
@@ -23,6 +25,16 @@ class CategoryDetailPage extends StatefulWidget {
 class _CategoryDetailPageState extends State<CategoryDetailPage> {
   DateTime selectedMonth = DateTime.now();
 
+  List<String> categories = [];
+
+  Future<void> _loadCategories() async {
+    categories = await CategoryService.loadCategories();
+
+    if (!mounted) return;
+
+    setState(() {});
+  }
+
   bool _isTargetCategory(Expense expense) {
     if (CategoryHelper.isChildCategory(widget.category)) {
       return expense.category == widget.category;
@@ -42,84 +54,38 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
   }
 
   Future<void> _showEditDialog(Expense expense) async {
-    final amountController = TextEditingController(
-      text: expense.amount.toString(),
-    );
-
-    final memoController = TextEditingController(text: expense.memo);
-
-    await showDialog(
+    final updatedExpense = await showExpenseEditDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text("編集"),
-
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: "金額"),
-              ),
-
-              TextField(
-                controller: memoController,
-                decoration: const InputDecoration(labelText: "メモ"),
-              ),
-            ],
-          ),
-
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text("キャンセル"),
-            ),
-
-            ElevatedButton(
-              onPressed: () async {
-                final amount = int.tryParse(amountController.text.trim());
-
-                if (amount == null || amount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("金額は1以上の数字で入力してください")),
-                  );
-                  return;
-                }
-
-                final index = widget.expenses.indexOf(expense);
-
-                if (index == -1) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("編集対象のデータが見つかりませんでした")),
-                  );
-                  return;
-                }
-
-                widget.expenses[index] = expense.copyWith(
-                  amount: amount,
-                  memo: memoController.text,
-                );
-
-                await widget.onSave();
-
-                if (!mounted) return;
-
-                setState(() {});
-
-                Navigator.pop(dialogContext);
-              },
-              child: const Text("保存"),
-            ),
-          ],
-        );
-      },
+      expense: expense,
+      categories: categories,
+      canEditDate: true,
+      canEditCategory: true,
     );
 
-    amountController.dispose();
-    memoController.dispose();
+    if (updatedExpense == null) {
+      return;
+    }
+
+    final index = widget.expenses.indexOf(expense);
+
+    if (index == -1) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("編集対象のデータが見つかりませんでした")));
+      return;
+    }
+
+    widget.expenses[index] = updatedExpense;
+
+    widget.expenses.sort((a, b) => b.date.compareTo(a.date));
+
+    await widget.onSave();
+
+    if (!mounted) return;
+
+    setState(() {});
   }
 
   Widget _buildChildBreakdown(List<MapEntry<String, int>> childTotalEntries) {
@@ -168,6 +134,8 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
   @override
   void initState() {
     super.initState();
+
+    _loadCategories();
 
     final target = widget.expenses.where((e) => _isTargetCategory(e)).toList();
 
