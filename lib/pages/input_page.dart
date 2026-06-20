@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../widgets/summary_card.dart';
 import '../models/expense.dart';
 import '../services/category_service.dart';
+import '../services/category_helper.dart';
 
 // ========================================
 // 入力画面
@@ -192,6 +193,34 @@ class _InputPageState extends State<InputPage> {
     setState(() {});
   }
 
+  List<String> _buildCategoryDisplayList() {
+    final parentCategories = _categories
+        .where((category) => !CategoryHelper.isChildCategory(category))
+        .toList();
+
+    final displayList = <String>[];
+
+    for (final parent in parentCategories) {
+      displayList.add(parent);
+
+      final children = _categories.where((category) {
+        return CategoryHelper.isChildCategory(category) &&
+            CategoryHelper.parentOf(category) == parent;
+      }).toList();
+
+      displayList.addAll(children);
+    }
+
+    final orphanChildren = _categories.where((category) {
+      return CategoryHelper.isChildCategory(category) &&
+          !parentCategories.contains(CategoryHelper.parentOf(category));
+    }).toList();
+
+    displayList.addAll(orphanChildren);
+
+    return displayList;
+  }
+
   @override
   Widget build(BuildContext context) {
     DateTime now = DateTime.now();
@@ -223,6 +252,8 @@ class _InputPageState extends State<InputPage> {
     if (_categories.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    final displayCategories = _buildCategoryDisplayList();
 
     // ========================================
     // 収支計算
@@ -263,12 +294,18 @@ class _InputPageState extends State<InputPage> {
               labelText: 'カテゴリ',
               border: OutlineInputBorder(),
             ),
-            items: _categories
-                .map(
-                  (category) =>
-                      DropdownMenuItem(value: category, child: Text(category)),
-                )
-                .toList(),
+            items: displayCategories.map((category) {
+              final isChild = CategoryHelper.isChildCategory(category);
+
+              return DropdownMenuItem(
+                value: category,
+                child: Text(
+                  isChild
+                      ? "   ↳ ${CategoryHelper.childOf(category)}"
+                      : "📁 ${CategoryHelper.displayName(category)}",
+                ),
+              );
+            }).toList(),
             onChanged: (value) {
               setState(() {
                 _selectedCategory = value!;
@@ -437,7 +474,7 @@ class _InputPageState extends State<InputPage> {
                 ),
 
                 title: Text(
-                  expense.category,
+                  CategoryHelper.displayName(expense.category),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
 

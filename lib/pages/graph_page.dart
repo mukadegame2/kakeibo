@@ -6,6 +6,7 @@ import '../models/expense.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/monthly_balance_chart.dart';
 import 'category_detail_page.dart';
+import '../services/category_helper.dart';
 
 // ========================================
 // グラフ画面
@@ -59,8 +60,12 @@ class _GraphPageState extends State<GraphPage> {
   @override
   Widget build(BuildContext context) {
     // カテゴリごとの支出合計
+    final parentCategories = categories
+        .where((category) => !CategoryHelper.isChildCategory(category))
+        .toList();
+
     Map<String, int> categoryTotals = {
-      for (var category in categories) category: 0,
+      for (var category in parentCategories) category: 0,
     };
 
     // ========================================
@@ -79,8 +84,10 @@ class _GraphPageState extends State<GraphPage> {
       }
 
       // カテゴリ別に金額を加算
-      categoryTotals[expense.category] =
-          (categoryTotals[expense.category] ?? 0) + expense.amount;
+      final parentCategory = CategoryHelper.parentOf(expense.category);
+
+      categoryTotals[parentCategory] =
+          (categoryTotals[parentCategory] ?? 0) + expense.amount;
     }
 
     // グラフの色設定
@@ -288,12 +295,15 @@ class _GraphPageState extends State<GraphPage> {
 
           const SizedBox(height: 8),
 
-          const Text(
-            "月別収支推移",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            "${selectedMonth.year}年 月別収支推移",
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
 
-          MonthlyBalanceChart(expenses: widget.expenses),
+          MonthlyBalanceChart(
+            expenses: widget.expenses,
+            year: selectedMonth.year,
+          ),
 
           const SizedBox(height: 8),
 
@@ -331,7 +341,7 @@ class _GraphPageState extends State<GraphPage> {
                           ),
                         ),
 
-                        title: Text(data.key),
+                        title: Text(CategoryHelper.displayName(data.key)),
 
                         subtitle: Text("${percent.toStringAsFixed(1)}%"),
 

@@ -4,6 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../models/expense.dart';
 import '../widgets/summary_card.dart';
 import '../widgets/month_selector.dart';
+import '../services/category_helper.dart';
 
 // ========================================
 // カレンダー画面
@@ -238,7 +239,7 @@ class _CalendarPageState extends State<CalendarPage> {
               children: displayExpenses
                   .map(
                     (expense) => ListTile(
-                      title: Text(expense.category),
+                      title: Text(CategoryHelper.displayName(expense.category)),
                       subtitle: Text(
                         "${expense.date.month}/${expense.date.day}  ${expense.memo}",
                       ),

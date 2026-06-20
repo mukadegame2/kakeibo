@@ -5,12 +5,17 @@ import '../models/expense.dart';
 
 class MonthlyBalanceChart extends StatelessWidget {
   final List<Expense> expenses;
+  final int year;
 
-  const MonthlyBalanceChart({super.key, required this.expenses});
+  const MonthlyBalanceChart({
+    super.key,
+    required this.expenses,
+    required this.year,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final currentYear = DateTime.now().year;
+    final currentYear = year;
 
     List<FlSpot> spots = [];
 

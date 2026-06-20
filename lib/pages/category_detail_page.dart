@@ -1,4 +1,6 @@
 import '../models/expense.dart';
+import '../services/category_helper.dart';
+
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
@@ -20,6 +22,15 @@ class CategoryDetailPage extends StatefulWidget {
 
 class _CategoryDetailPageState extends State<CategoryDetailPage> {
   DateTime selectedMonth = DateTime.now();
+
+  bool _isTargetCategory(Expense expense) {
+    if (CategoryHelper.isChildCategory(widget.category)) {
+      return expense.category == widget.category;
+    }
+
+    return expense.category == widget.category ||
+        CategoryHelper.parentOf(expense.category) == widget.category;
+  }
 
   Future<void> _deleteExpense(Expense expense) async {
     widget.expenses.remove(expense);
@@ -111,13 +122,54 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
     memoController.dispose();
   }
 
+  Widget _buildChildBreakdown(List<MapEntry<String, int>> childTotalEntries) {
+    if (CategoryHelper.isChildCategory(widget.category)) {
+      return const SizedBox();
+    }
+
+    if (childTotalEntries.length <= 1) {
+      return const SizedBox();
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              "内訳",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 8),
+
+            ...childTotalEntries.map((entry) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(entry.key),
+                    Text(
+                      "¥${entry.value}",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
 
-    final target = widget.expenses
-        .where((e) => e.category == widget.category)
-        .toList();
+    final target = widget.expenses.where((e) => _isTargetCategory(e)).toList();
 
     if (target.isNotEmpty) {
       target.sort((a, b) => b.date.compareTo(a.date));
@@ -133,7 +185,11 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
     }
 
     for (var expense in widget.expenses) {
-      if (expense.category != widget.category) {
+      if (!_isTargetCategory(expense)) {
+        continue;
+      }
+
+      if (expense.date.year != selectedMonth.year) {
         continue;
       }
 
@@ -143,7 +199,8 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
     }
 
     final monthExpenses = widget.expenses.where((expense) {
-      return expense.category == widget.category &&
+      return _isTargetCategory(expense) &&
+          expense.date.year == selectedMonth.year &&
           expense.date.month == selectedMonth.month;
     }).toList();
 
@@ -152,10 +209,26 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
       (sum, expense) => sum + expense.amount,
     );
 
+    final childTotals = <String, int>{};
+
+    for (final expense in monthExpenses) {
+      final category = expense.category;
+
+      final displayCategory = CategoryHelper.isChildCategory(category)
+          ? CategoryHelper.childOf(category)
+          : "親カテゴリ直下";
+
+      childTotals[displayCategory] =
+          (childTotals[displayCategory] ?? 0) + expense.amount;
+    }
+
+    final childTotalEntries = childTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
     monthExpenses.sort((a, b) => b.date.compareTo(a.date));
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.category)),
+      appBar: AppBar(title: Text(CategoryHelper.displayName(widget.category))),
 
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -177,7 +250,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                       final month = response.spot!.touchedBarGroup.x;
 
                       setState(() {
-                        selectedMonth = DateTime(DateTime.now().year, month);
+                        selectedMonth = DateTime(selectedMonth.year, month);
                       });
                     },
                   ),
@@ -209,7 +282,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
             const SizedBox(height: 16),
 
             Text(
-              "${selectedMonth.month}月",
+              "${selectedMonth.year}年${selectedMonth.month}月",
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -223,18 +296,21 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
               ),
             ),
 
+            const SizedBox(height: 8),
+
+            _buildChildBreakdown(childTotalEntries),
+
+            const SizedBox(height: 8),
+
             Expanded(
               child: ListView(
                 children: monthExpenses
-                    .where((expense) {
-                      return expense.category == widget.category &&
-                          expense.date.month == selectedMonth.month;
-                    })
                     .map(
                       (expense) => ListTile(
                         title: Text(expense.memo),
                         subtitle: Text(
-                          "${expense.date.year}/${expense.date.month}/${expense.date.day}",
+                          "${expense.date.year}/${expense.date.month}/${expense.date.day}"
+                          "  ${CategoryHelper.displayName(expense.category)}",
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -250,17 +326,13 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
 
                             IconButton(
                               icon: const Icon(Icons.delete),
-
                               onPressed: () async {
                                 final result = await showDialog<bool>(
                                   context: context,
-
                                   builder: (context) {
                                     return AlertDialog(
                                       title: const Text("削除確認"),
-
                                       content: const Text("この明細を削除しますか？"),
-
                                       actions: [
                                         TextButton(
                                           onPressed: () {
@@ -268,7 +340,6 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                                           },
                                           child: const Text("キャンセル"),
                                         ),
-
                                         ElevatedButton(
                                           onPressed: () {
                                             Navigator.pop(context, true);
