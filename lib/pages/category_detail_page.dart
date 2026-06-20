@@ -69,14 +69,27 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
 
             ElevatedButton(
               onPressed: () async {
+                final amount = int.tryParse(amountController.text.trim());
+
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("金額は1以上の数字で入力してください")),
+                  );
+                  return;
+                }
+
                 final index = widget.expenses.indexOf(expense);
 
-                widget.expenses[index] = Expense(
-                  amount: int.parse(amountController.text),
-                  category: expense.category,
+                if (index == -1) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("編集対象のデータが見つかりませんでした")),
+                  );
+                  return;
+                }
+
+                widget.expenses[index] = expense.copyWith(
+                  amount: amount,
                   memo: memoController.text,
-                  date: expense.date,
-                  isIncome: expense.isIncome,
                 );
 
                 await widget.onSave();
@@ -93,6 +106,9 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
         );
       },
     );
+
+    amountController.dispose();
+    memoController.dispose();
   }
 
   @override

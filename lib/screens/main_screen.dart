@@ -66,16 +66,25 @@ class _MainScreenState extends State<MainScreen> {
 
     final jsonList = prefs.getStringList('expenses');
 
-    // 保存データが無ければ終了
     if (jsonList == null) {
       return;
     }
 
+    final loadedExpenses = <Expense>[];
+
+    for (final jsonText in jsonList) {
+      try {
+        loadedExpenses.add(Expense.fromJson(jsonDecode(jsonText)));
+      } catch (_) {
+        // 壊れたデータは読み飛ばす
+      }
+    }
+
+    if (!mounted) return;
+
     setState(() {
       expenses.clear();
-
-      // JSON文字列をExpenseオブジェクトへ変換
-      expenses.addAll(jsonList.map((e) => Expense.fromJson(jsonDecode(e))));
+      expenses.addAll(loadedExpenses);
     });
   }
 

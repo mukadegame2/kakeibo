@@ -54,15 +54,16 @@ class _CalendarPageState extends State<CalendarPage> {
     }).toList();
   }
 
-  void _showEditDialog(Expense expense) {
+  Future<void> _showEditDialog(Expense expense) async {
     DateTime editDate = expense.date;
+
     final amountController = TextEditingController(
       text: expense.amount.toString(),
     );
 
     final memoController = TextEditingController(text: expense.memo);
 
-    showDialog(
+    await showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -88,9 +89,8 @@ class _CalendarPageState extends State<CalendarPage> {
                     ),
                     trailing: const Icon(Icons.edit),
                     onTap: () async {
-                      print("タップされた");
                       final pickedDate = await showDatePicker(
-                        context: context,
+                        context: dialogContext,
                         initialDate: editDate,
                         firstDate: DateTime(2020),
                         lastDate: DateTime(2100),
@@ -116,43 +116,35 @@ class _CalendarPageState extends State<CalendarPage> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
               },
               child: const Text("キャンセル"),
             ),
 
-            // 削除ボタン
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-
-              onPressed: () async {
-                widget.expenses.remove(expense);
-
-                await widget.onSave();
-
-                if (!mounted) return;
-
-                Navigator.pop(dialogContext);
-
-                setState(() {});
-              },
-
-              child: const Text("削除"),
-            ),
-
-            // 更新ボタン
             ElevatedButton(
               onPressed: () async {
-                Navigator.of(dialogContext).pop();
+                final amount = int.tryParse(amountController.text.trim());
+
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("金額は1以上の数字で入力してください")),
+                  );
+                  return;
+                }
 
                 final index = widget.expenses.indexOf(expense);
 
-                widget.expenses[index] = Expense(
-                  amount: int.parse(amountController.text),
-                  category: expense.category,
+                if (index == -1) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("編集対象のデータが見つかりませんでした")),
+                  );
+                  return;
+                }
+
+                widget.expenses[index] = expense.copyWith(
+                  amount: amount,
                   memo: memoController.text,
                   date: editDate,
-                  isIncome: expense.isIncome,
                 );
 
                 widget.expenses.sort((a, b) => b.date.compareTo(a.date));
@@ -162,6 +154,8 @@ class _CalendarPageState extends State<CalendarPage> {
                 if (!mounted) return;
 
                 setState(() {});
+
+                Navigator.pop(dialogContext);
               },
               child: const Text("更新"),
             ),
@@ -169,35 +163,9 @@ class _CalendarPageState extends State<CalendarPage> {
         );
       },
     );
-  }
 
-  Map<String, List<Expense>> _groupExpensesByDate() {
-    // 日付ごとにデータをまとめる
-    Map<String, List<Expense>> groupedExpenses = {};
-
-    // ========================================
-    // 支出データを日付ごとに集計
-    // 収入も集計対象とする
-    // ========================================
-    for (var expense in widget.expenses) {
-      // 選択月以外は除外
-      if (expense.date.year != selectedMonth.year ||
-          expense.date.month != selectedMonth.month) {
-        continue;
-      }
-
-      // 日付キーを作成（例: "2024/6/15"）
-      final dateKey =
-          "${expense.date.year}/${expense.date.month}/${expense.date.day}";
-
-      // 日付キーが存在しない場合は空のリストを作成
-      groupedExpenses.putIfAbsent(dateKey, () => []);
-
-      // データを日付キーに追加
-      groupedExpenses[dateKey]!.add(expense);
-    }
-
-    return groupedExpenses;
+    amountController.dispose();
+    memoController.dispose();
   }
 
   List<Expense> _getExpensesForDay(DateTime day) {
@@ -206,6 +174,87 @@ class _CalendarPageState extends State<CalendarPage> {
           expense.date.month == day.month &&
           expense.date.day == day.day;
     }).toList();
+  }
+
+  Widget _buildCalendar({required int flex}) {
+    return Expanded(
+      flex: flex,
+      child: TableCalendar(
+        calendarFormat: CalendarFormat.month,
+        availableCalendarFormats: const {CalendarFormat.month: '月'},
+        firstDay: DateTime(2020),
+        lastDay: DateTime(2100),
+        focusedDay: selectedMonth,
+
+        headerVisible: false,
+
+        rowHeight: 38,
+
+        calendarBuilders: CalendarBuilders(
+          defaultBuilder: (context, day, focusedDay) {
+            final total = _getDailyTotal(day);
+
+            return Container(
+              margin: const EdgeInsets.all(2),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text("${day.day}", style: const TextStyle(fontSize: 14)),
+
+                  if (_getExpensesForDay(day).isNotEmpty)
+                    Text(
+                      total >= 0 ? "+¥$total" : "-¥${total.abs()}",
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: total >= 0 ? Colors.blue : Colors.red,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+
+        selectedDayPredicate: (day) {
+          return isSameDay(selectedDay, day);
+        },
+
+        onDaySelected: (selected, focused) {
+          setState(() {
+            selectedDay = selected;
+            selectedMonth = focused;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildExpenseList(List<Expense> displayExpenses) {
+    return SizedBox(
+      height: 200,
+      child: displayExpenses.isEmpty
+          ? const Center(child: Text("表示するデータがありません"))
+          : ListView(
+              children: displayExpenses
+                  .map(
+                    (expense) => ListTile(
+                      title: Text(expense.category),
+                      subtitle: Text(
+                        "${expense.date.month}/${expense.date.day}  ${expense.memo}",
+                      ),
+                      trailing: Text(
+                        expense.isIncome
+                            ? "+¥${expense.amount}"
+                            : "-¥${expense.amount}",
+                      ),
+                      onTap: () {
+                        _showEditDialog(expense);
+                      },
+                    ),
+                  )
+                  .toList(),
+            ),
+    );
   }
 
   @override
@@ -248,135 +297,48 @@ class _CalendarPageState extends State<CalendarPage> {
                 expense.amount.toString().contains(searchText);
           }).toList();
 
-    final groupedExpenses = _groupExpensesByDate();
-
-    final entries = groupedExpenses.entries.toList();
-    entries.sort((a, b) => b.key.compareTo(a.key));
-
-    // データがあるかどうか判別
-    if (entries.isEmpty) {
-      // データがない月
-      return Column(
-        children: [
-          MonthSelector(
-            selectedMonth: selectedMonth,
-            onPrevious: () {
-              setState(() {
-                selectedMonth = DateTime(
-                  selectedMonth.year,
-                  selectedMonth.month - 1,
-                );
-              });
-            },
-            onNext: () {
-              setState(() {
-                selectedMonth = DateTime(
-                  selectedMonth.year,
-                  selectedMonth.month + 1,
-                );
-              });
-            },
-          ),
-
-          SummaryCard(income: income, expense: expense),
-
-          Expanded(
-            flex: 1,
-            child: TableCalendar(
-              calendarFormat: CalendarFormat.month,
-
-              availableCalendarFormats: const {CalendarFormat.month: '月'},
-              firstDay: DateTime(2020),
-              lastDay: DateTime(2100),
-              focusedDay: selectedMonth,
-
-              rowHeight: 40,
-
-              calendarBuilders: CalendarBuilders(
-                defaultBuilder: (context, day, focusedDay) {
-                  final total = _getDailyTotal(day);
-
-                  return Container(
-                    margin: const EdgeInsets.all(2),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "${day.day}",
-                          style: const TextStyle(fontSize: 14),
-                        ),
-
-                        if (_getExpensesForDay(day).isNotEmpty)
-                          Text(
-                            total >= 0 ? "+¥$total" : "-¥${total.abs()}",
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: total >= 0 ? Colors.blue : Colors.red,
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-              selectedDayPredicate: (day) {
-                return isSameDay(selectedDay, day);
-              },
-
-              onDaySelected: (selected, focused) {
-                setState(() {
-                  selectedDay = selected;
-                  selectedMonth = focused;
-                });
-              },
-            ),
-          ),
-
-          Expanded(
-            flex: 1,
-            child: entries.isEmpty
-                ? const Center(child: Text("この月のデータはありません"))
-                : ListView(
-                    children: displayExpenses
-                        .map(
-                          (expense) => ListTile(
-                            title: Text(expense.category),
-                            subtitle: Text(
-                              "${expense.date.month}/${expense.date.day}  ${expense.memo}",
-                            ),
-
-                            trailing: Text(
-                              expense.isIncome
-                                  ? "+¥${expense.amount}"
-                                  : "-¥${expense.amount}",
-                            ),
-
-                            onTap: () {
-                              _showEditDialog(expense);
-                            },
-                          ),
-                        )
-                        .toList(),
-                  ),
-          ),
-        ],
-      );
-    }
-
-    // データがある月
     return Column(
       children: [
+        MonthSelector(
+          selectedMonth: selectedMonth,
+          onPrevious: () {
+            setState(() {
+              selectedMonth = DateTime(
+                selectedMonth.year,
+                selectedMonth.month - 1,
+              );
+
+              selectedDay = DateTime(
+                selectedMonth.year,
+                selectedMonth.month,
+                1,
+              );
+            });
+          },
+          onNext: () {
+            setState(() {
+              selectedMonth = DateTime(
+                selectedMonth.year,
+                selectedMonth.month + 1,
+              );
+
+              selectedDay = DateTime(
+                selectedMonth.year,
+                selectedMonth.month,
+                1,
+              );
+            });
+          },
+        ),
+
         Padding(
           padding: const EdgeInsets.all(8),
-
           child: TextField(
             decoration: const InputDecoration(
               labelText: "検索",
               prefixIcon: Icon(Icons.search),
               border: OutlineInputBorder(),
             ),
-
             onChanged: (value) {
               setState(() {
                 searchText = value;
@@ -386,90 +348,10 @@ class _CalendarPageState extends State<CalendarPage> {
         ),
 
         SummaryCard(income: income, expense: expense),
-        Expanded(
-          flex: 2,
-          child: TableCalendar(
-            calendarFormat: CalendarFormat.month,
 
-            availableCalendarFormats: const {CalendarFormat.month: '月'},
-            firstDay: DateTime(2020),
-            lastDay: DateTime(2100),
-            focusedDay: selectedMonth,
+        _buildCalendar(flex: 2),
 
-            rowHeight: 40,
-
-            calendarBuilders: CalendarBuilders(
-              defaultBuilder: (context, day, focusedDay) {
-                final total = _getDailyTotal(day);
-
-                return Container(
-                  margin: const EdgeInsets.all(2),
-
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-
-                    children: [
-                      Text("${day.day}", style: const TextStyle(fontSize: 14)),
-
-                      if (_getExpensesForDay(day).isNotEmpty)
-                        Text(
-                          total >= 0 ? "+¥$total" : "-¥${total.abs()}",
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: total >= 0 ? Colors.blue : Colors.red,
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-
-            selectedDayPredicate: (day) {
-              return isSameDay(selectedDay, day);
-            },
-
-            onDaySelected: (selected, focused) {
-              setState(() {
-                selectedDay = selected;
-                selectedMonth = focused;
-              });
-            },
-          ),
-        ),
-
-        if (selectedDay != null)
-          SizedBox(
-            height: 200,
-            child: ListView(
-              children: displayExpenses
-                  .where((expense) {
-                    return expense.memo.contains(searchText) ||
-                        expense.category.contains(searchText) ||
-                        expense.amount.toString().contains(searchText);
-                  })
-                  .toList()
-                  .map(
-                    (expense) => ListTile(
-                      title: Text(expense.category),
-                      subtitle: Text(
-                        "${expense.date.month}/${expense.date.day}  ${expense.memo}",
-                      ),
-
-                      trailing: Text(
-                        expense.isIncome
-                            ? "+¥${expense.amount}"
-                            : "-¥${expense.amount}",
-                      ),
-
-                      onTap: () {
-                        _showEditDialog(expense);
-                      },
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
+        _buildExpenseList(displayExpenses),
       ],
     );
   }

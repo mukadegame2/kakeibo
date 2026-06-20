@@ -37,4 +37,20 @@ class Expense {
       isIncome: json['isIncome'] ?? false,
     );
   }
+
+  Expense copyWith({
+    int? amount,
+    String? category,
+    String? memo,
+    DateTime? date,
+    bool? isIncome,
+  }) {
+    return Expense(
+      amount: amount ?? this.amount,
+      category: category ?? this.category,
+      memo: memo ?? this.memo,
+      date: date ?? this.date,
+      isIncome: isIncome ?? this.isIncome,
+    );
+  }
 }

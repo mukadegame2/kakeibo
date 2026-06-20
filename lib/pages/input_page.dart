@@ -34,15 +34,16 @@ class InputPage extends StatefulWidget {
 // を担当
 // ========================================
 class _InputPageState extends State<InputPage> {
-  void _showEditDialog(Expense expense) {
+  Future<void> _showEditDialog(Expense expense) async {
     DateTime editDate = expense.date;
+
     final amountController = TextEditingController(
       text: expense.amount.toString(),
     );
 
     final memoController = TextEditingController(text: expense.memo);
 
-    showDialog(
+    await showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -69,7 +70,7 @@ class _InputPageState extends State<InputPage> {
                     trailing: const Icon(Icons.edit),
                     onTap: () async {
                       final pickedDate = await showDatePicker(
-                        context: context,
+                        context: dialogContext,
                         initialDate: editDate,
                         firstDate: DateTime(2020),
                         lastDate: DateTime(2100),
@@ -95,24 +96,35 @@ class _InputPageState extends State<InputPage> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
               },
               child: const Text("キャンセル"),
             ),
 
-            // 更新ボタン
             ElevatedButton(
               onPressed: () async {
-                Navigator.of(dialogContext).pop();
+                final amount = int.tryParse(amountController.text.trim());
+
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("金額は1以上の数字で入力してください")),
+                  );
+                  return;
+                }
 
                 final index = widget.expenses.indexOf(expense);
 
-                widget.expenses[index] = Expense(
-                  amount: int.parse(amountController.text),
-                  category: expense.category,
+                if (index == -1) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("編集対象のデータが見つかりませんでした")),
+                  );
+                  return;
+                }
+
+                widget.expenses[index] = expense.copyWith(
+                  amount: amount,
                   memo: memoController.text,
                   date: editDate,
-                  isIncome: expense.isIncome,
                 );
 
                 widget.expenses.sort((a, b) => b.date.compareTo(a.date));
@@ -122,6 +134,8 @@ class _InputPageState extends State<InputPage> {
                 if (!mounted) return;
 
                 setState(() {});
+
+                Navigator.pop(dialogContext);
               },
               child: const Text("更新"),
             ),
@@ -129,6 +143,9 @@ class _InputPageState extends State<InputPage> {
         );
       },
     );
+
+    amountController.dispose();
+    memoController.dispose();
   }
 
   // 金額入力欄
@@ -155,6 +172,14 @@ class _InputPageState extends State<InputPage> {
   void initState() {
     super.initState();
     _loadCategories();
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _memoController.dispose();
+
+    super.dispose();
   }
 
   Future<void> _loadCategories() async {
@@ -323,17 +348,19 @@ class _InputPageState extends State<InputPage> {
           // ========================================
           ElevatedButton(
             onPressed: () async {
-              final amountText = _amountController.text;
+              final amount = int.tryParse(_amountController.text);
 
-              // 金額未入力なら登録しない
-              if (amountText.isEmpty) {
+              if (amount == null || amount <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("金額は1以上の数字で入力してください")),
+                );
                 return;
               }
 
               // 家計簿データ追加
               widget.expenses.add(
                 Expense(
-                  amount: int.parse(amountText),
+                  amount: amount,
                   category: _selectedCategory,
                   memo: _memoController.text,
                   date: _selectedDate,

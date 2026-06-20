@@ -1,19 +1,22 @@
+import 'package:csv/csv.dart';
+
 import '../models/expense.dart';
 
 class CsvImportService {
   static List<Expense> importCsv(String csvText) {
-    final lines = csvText.split('\n');
+    final rows = const CsvToListConverter().convert(csvText);
 
     List<Expense> expenses = [];
 
-    for (int i = 1; i < lines.length; i++) {
-      if (lines[i].trim().isEmpty) {
+    // 0行目はヘッダーなので1から開始
+    for (int i = 1; i < rows.length; i++) {
+      final values = rows[i];
+
+      if (values.length < 5) {
         continue;
       }
 
-      final values = lines[i].split(',');
-
-      final dateParts = values[0].split('/');
+      final dateParts = values[0].toString().split('/');
 
       expenses.add(
         Expense(
@@ -22,14 +25,10 @@ class CsvImportService {
             int.parse(dateParts[1]),
             int.parse(dateParts[2]),
           ),
-
-          isIncome: values[1] == "収入",
-
-          category: values[2],
-
-          amount: int.parse(values[3]),
-
-          memo: values[4],
+          isIncome: values[1].toString() == "収入",
+          category: values[2].toString(),
+          amount: int.parse(values[3].toString()),
+          memo: values[4].toString(),
         ),
       );
     }

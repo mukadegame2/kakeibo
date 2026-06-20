@@ -36,8 +36,17 @@ class _SettingPageState extends State<SettingPage> {
     loadCategories();
   }
 
+  @override
+  void dispose() {
+    categoryController.dispose();
+
+    super.dispose();
+  }
+
   Future<void> loadCategories() async {
     categories = await CategoryService.loadCategories();
+
+    if (!mounted) return;
 
     setState(() {});
   }
@@ -114,10 +123,10 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
-  void _showEditCategoryDialog(String oldCategory) {
+  Future<void> _showEditCategoryDialog(String oldCategory) async {
     final controller = TextEditingController(text: oldCategory);
 
-    showDialog(
+    await showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -144,18 +153,37 @@ class _SettingPageState extends State<SettingPage> {
                   return;
                 }
 
+                // 「その他」は名前変更不可
+                if (oldCategory == "その他") {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("「その他」は名前変更できません")),
+                  );
+                  return;
+                }
+
+                // 同じ名前はOK
+                if (newCategory != oldCategory &&
+                    categories.contains(newCategory)) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text("既に存在するカテゴリです")));
+                  return;
+                }
+
                 final index = categories.indexOf(oldCategory);
+
+                if (index == -1) {
+                  return;
+                }
 
                 categories[index] = newCategory;
 
                 for (int i = 0; i < widget.expenses.length; i++) {
-                  if (widget.expenses[i].category == oldCategory) {
-                    widget.expenses[i] = Expense(
-                      amount: widget.expenses[i].amount,
+                  final expense = widget.expenses[i];
+
+                  if (expense.category == oldCategory) {
+                    widget.expenses[i] = expense.copyWith(
                       category: newCategory,
-                      memo: widget.expenses[i].memo,
-                      date: widget.expenses[i].date,
-                      isIncome: widget.expenses[i].isIncome,
                     );
                   }
                 }
@@ -176,6 +204,8 @@ class _SettingPageState extends State<SettingPage> {
         );
       },
     );
+
+    controller.dispose();
   }
 
   @override
@@ -212,6 +242,8 @@ class _SettingPageState extends State<SettingPage> {
                   categories.add(category);
 
                   await CategoryService.saveCategories(categories);
+
+                  if (!mounted) return;
 
                   categoryController.clear();
 
@@ -284,13 +316,11 @@ class _SettingPageState extends State<SettingPage> {
 
                         // 削除時にデータ移行
                         for (int i = 0; i < widget.expenses.length; i++) {
-                          if (widget.expenses[i].category == category) {
-                            widget.expenses[i] = Expense(
-                              amount: widget.expenses[i].amount,
+                          final expense = widget.expenses[i];
+
+                          if (expense.category == category) {
+                            widget.expenses[i] = expense.copyWith(
                               category: "その他",
-                              memo: widget.expenses[i].memo,
-                              date: widget.expenses[i].date,
-                              isIncome: widget.expenses[i].isIncome,
                             );
                           }
                         }
@@ -300,6 +330,8 @@ class _SettingPageState extends State<SettingPage> {
                         await CategoryService.saveCategories(categories);
 
                         await widget.onSave();
+
+                        if (!mounted) return;
 
                         setState(() {});
                       },
