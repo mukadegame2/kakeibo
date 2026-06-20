@@ -5,6 +5,7 @@ import '../services/csv_service.dart';
 import 'dart:io';
 import '../services/csv_import_service.dart';
 import 'package:file_picker/file_picker.dart';
+import '../services/backup_service.dart';
 
 // ========================================
 // 設定画面
@@ -51,7 +52,7 @@ class _SettingPageState extends State<SettingPage> {
     setState(() {});
   }
 
-  Future<void> importCsvFile() async {
+  Future<void> importCsvFile({bool isBackupRestore = false}) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
@@ -71,29 +72,36 @@ class _SettingPageState extends State<SettingPage> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
-          title: const Text("CSVインポート確認"),
+          title: Text(isBackupRestore ? "バックアップ復元確認" : "CSVインポート確認"),
 
           content: Text(
-            "以下のファイルを読み込みます。\n\n"
-            "$fileName\n\n"
-            "現在の家計簿データは上書きされます。",
+            isBackupRestore
+                ? "以下のバックアップファイルから復元します。\n\n"
+                      "$fileName\n\n"
+                      "現在の家計簿データはすべて上書きされます。\n"
+                      "この操作は元に戻せません。\n\n"
+                      "復元前に、必要であれば現在のデータをバックアップしてください。"
+                : "以下のCSVファイルを読み込みます。\n\n"
+                      "$fileName\n\n"
+                      "現在の家計簿データはすべて上書きされます。\n"
+                      "この操作は元に戻せません。",
           ),
 
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context, false);
+                Navigator.pop(dialogContext, false);
               },
               child: const Text("キャンセル"),
             ),
 
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(context, true);
+                Navigator.pop(dialogContext, true);
               },
-              child: const Text("インポート"),
+              child: Text(isBackupRestore ? "復元する" : "インポートする"),
             ),
           ],
         );
@@ -104,23 +112,44 @@ class _SettingPageState extends State<SettingPage> {
       return;
     }
 
-    final csvText = await File(path).readAsString();
+    try {
+      final csvText = await File(path).readAsString();
 
-    final importedExpenses = CsvImportService.importCsv(csvText);
+      final importedExpenses = CsvImportService.importCsv(csvText);
 
-    widget.expenses.clear();
+      importedExpenses.sort((a, b) => b.date.compareTo(a.date));
 
-    widget.expenses.addAll(importedExpenses);
+      widget.expenses.clear();
+      widget.expenses.addAll(importedExpenses);
 
-    await widget.onSave();
+      await widget.onSave();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {});
+      setState(() {});
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("${importedExpenses.length}件のデータを読み込みました")),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isBackupRestore
+                ? "${importedExpenses.length}件のデータを復元しました"
+                : "${importedExpenses.length}件のデータを読み込みました",
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isBackupRestore
+                ? "バックアップ復元に失敗しました\nCSV形式を確認してください"
+                : "CSVインポートに失敗しました\nCSV形式を確認してください",
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _showEditCategoryDialog(String oldCategory) async {
@@ -356,12 +385,42 @@ class _SettingPageState extends State<SettingPage> {
           child: const Text("CSV保存"),
         ),
 
+        // バックアップ保存
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              final path = await BackupService.saveBackup(widget.expenses);
+
+              if (!mounted) return;
+
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text("バックアップを作成しました\n$path")));
+            } catch (e) {
+              if (!mounted) return;
+
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text("バックアップ作成に失敗しました\n$e")));
+            }
+          },
+          child: const Text("バックアップ作成"),
+        ),
+
         // csvインポート
         ElevatedButton(
           onPressed: () async {
             await importCsvFile();
           },
           child: const Text("CSVインポート"),
+        ),
+
+        // バックアップ復元ボタン
+        ElevatedButton(
+          onPressed: () async {
+            await importCsvFile(isBackupRestore: true);
+          },
+          child: const Text("バックアップ復元"),
         ),
       ],
     );
