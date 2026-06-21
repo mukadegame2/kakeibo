@@ -52,6 +52,29 @@ class _GraphPageState extends State<GraphPage> {
 
   bool showIncome = false;
 
+  List<int> _buildAvailableYears() {
+    final years = widget.expenses
+        .map((expense) {
+          return expense.date.year;
+        })
+        .toSet()
+        .toList();
+
+    final currentYear = DateTime.now().year;
+
+    if (!years.contains(currentYear)) {
+      years.add(currentYear);
+    }
+
+    if (!years.contains(selectedMonth.year)) {
+      years.add(selectedMonth.year);
+    }
+
+    years.sort();
+
+    return years;
+  }
+
   // ========================================
   // 画面描画
   // ・選択月のデータをカテゴリ別に集計
@@ -59,6 +82,8 @@ class _GraphPageState extends State<GraphPage> {
   // ========================================
   @override
   Widget build(BuildContext context) {
+    final availableYears = _buildAvailableYears();
+
     // カテゴリごとの支出合計
     final parentCategories = categories
         .where((category) => !CategoryHelper.isChildCategory(category))
@@ -203,6 +228,34 @@ class _GraphPageState extends State<GraphPage> {
                 );
               });
             },
+          ),
+
+          const SizedBox(height: 8),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text("表示年：", style: TextStyle(fontWeight: FontWeight.bold)),
+
+              DropdownButton<int>(
+                value: selectedMonth.year,
+                items: availableYears.map((year) {
+                  return DropdownMenuItem<int>(
+                    value: year,
+                    child: Text("$year年"),
+                  );
+                }).toList(),
+                onChanged: (year) {
+                  if (year == null) {
+                    return;
+                  }
+
+                  setState(() {
+                    selectedMonth = DateTime(year, selectedMonth.month);
+                  });
+                },
+              ),
+            ],
           ),
 
           // 月切替とグラフの間の余白

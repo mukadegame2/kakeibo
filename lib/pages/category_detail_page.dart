@@ -44,6 +44,28 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
         CategoryHelper.parentOf(expense.category) == widget.category;
   }
 
+  List<int> _buildAvailableYears() {
+    final years = widget.expenses
+        .where((expense) => _isTargetCategory(expense))
+        .map((expense) => expense.date.year)
+        .toSet()
+        .toList();
+
+    final currentYear = DateTime.now().year;
+
+    if (!years.contains(currentYear)) {
+      years.add(currentYear);
+    }
+
+    if (!years.contains(selectedMonth.year)) {
+      years.add(selectedMonth.year);
+    }
+
+    years.sort();
+
+    return years;
+  }
+
   Future<void> _deleteExpense(Expense expense) async {
     widget.expenses.remove(expense);
     await widget.onSave();
@@ -147,6 +169,8 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final availableYears = _buildAvailableYears();
+
     Map<int, int> monthlyTotals = {};
     for (int month = 1; month <= 12; month++) {
       monthlyTotals[month] = 0;
@@ -248,6 +272,37 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
             ),
 
             const SizedBox(height: 16),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  "表示年：",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+
+                DropdownButton<int>(
+                  value: selectedMonth.year,
+                  items: availableYears.map((year) {
+                    return DropdownMenuItem<int>(
+                      value: year,
+                      child: Text("$year年"),
+                    );
+                  }).toList(),
+                  onChanged: (year) {
+                    if (year == null) {
+                      return;
+                    }
+
+                    setState(() {
+                      selectedMonth = DateTime(year, selectedMonth.month);
+                    });
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
 
             Text(
               "${selectedMonth.year}年${selectedMonth.month}月",
