@@ -366,363 +366,355 @@ class _SettingPageState extends State<SettingPage> {
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                "親カテゴリ追加",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+        _buildSectionCard(
+          title: "カテゴリ追加",
+          children: [
+            const Text(
+              "親カテゴリ追加",
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
 
-              const SizedBox(height: 8),
+            const SizedBox(height: 8),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: categoryController,
-                      decoration: const InputDecoration(
-                        labelText: "親カテゴリ名",
-                        border: OutlineInputBorder(),
-                      ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: categoryController,
+                    decoration: const InputDecoration(
+                      labelText: "親カテゴリ名",
+                      border: OutlineInputBorder(),
                     ),
                   ),
-
-                  const SizedBox(width: 8),
-
-                  ElevatedButton(
-                    onPressed: () async {
-                      final category = categoryController.text.trim();
-
-                      if (category.isEmpty) {
-                        return;
-                      }
-
-                      if (category.contains('/')) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("親カテゴリ名に / は使わないでください")),
-                        );
-                        return;
-                      }
-
-                      if (categories.contains(category)) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("既に存在するカテゴリです")),
-                        );
-                        return;
-                      }
-
-                      categories.add(category);
-
-                      await CategoryService.saveCategories(categories);
-
-                      if (!mounted) return;
-
-                      categoryController.clear();
-
-                      setState(() {
-                        selectedParentCategory = category;
-                      });
-                    },
-                    child: const Text("追加"),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              const Text(
-                "子カテゴリ追加",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-
-              const SizedBox(height: 8),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: selectedParentCategory,
-                      decoration: const InputDecoration(
-                        labelText: "親カテゴリ",
-                        border: OutlineInputBorder(),
-                      ),
-                      items: parentCategories
-                          .map(
-                            (category) => DropdownMenuItem(
-                              value: category,
-                              child: Text(CategoryHelper.displayName(category)),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedParentCategory = value;
-                        });
-                      },
-                    ),
-                  ),
-
-                  const SizedBox(width: 8),
-
-                  Expanded(
-                    child: TextField(
-                      controller: childCategoryController,
-                      decoration: const InputDecoration(
-                        labelText: "子カテゴリ名",
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(width: 8),
-
-                  ElevatedButton(
-                    onPressed: () async {
-                      final parent = selectedParentCategory;
-                      final child = childCategoryController.text.trim();
-
-                      if (parent == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("親カテゴリを選択してください")),
-                        );
-                        return;
-                      }
-
-                      if (child.isEmpty) {
-                        return;
-                      }
-
-                      if (child.contains('/')) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("子カテゴリ名に / は使わないでください")),
-                        );
-                        return;
-                      }
-
-                      final category = CategoryHelper.createChildCategory(
-                        parent: parent,
-                        child: child,
-                      );
-
-                      if (categories.contains(category)) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("既に存在するカテゴリです")),
-                        );
-                        return;
-                      }
-
-                      categories.add(category);
-
-                      await CategoryService.saveCategories(categories);
-
-                      if (!mounted) return;
-
-                      childCategoryController.clear();
-
-                      setState(() {});
-                    },
-                    child: const Text("追加"),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-
-        Expanded(
-          child: ListView(
-            children: displayCategories.map((category) {
-              final isChild = CategoryHelper.isChildCategory(category);
-
-              return ListTile(
-                leading: Icon(
-                  isChild ? Icons.subdirectory_arrow_right : Icons.folder,
                 ),
 
-                contentPadding: EdgeInsets.only(
-                  left: isChild ? 32 : 16,
-                  right: 16,
-                ),
+                const SizedBox(width: 8),
 
-                title: Text(
-                  isChild
-                      ? CategoryHelper.childOf(category)
-                      : CategoryHelper.displayName(category),
-                ),
-
-                onTap: () {
-                  _showEditCategoryDialog(category);
-                },
-
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete),
-
+                ElevatedButton(
                   onPressed: () async {
-                    if (category == "その他") {
+                    final category = categoryController.text.trim();
+
+                    if (category.isEmpty) {
+                      return;
+                    }
+
+                    if (category.contains('/')) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("「その他」は削除できません")),
+                        const SnackBar(content: Text("親カテゴリ名に / は使わないでください")),
                       );
                       return;
                     }
 
-                    final childCategories = categories.where((c) {
-                      return CategoryHelper.isChildCategory(c) &&
-                          CategoryHelper.parentOf(c) == category;
-                    }).toList();
-
-                    if (!CategoryHelper.isChildCategory(category) &&
-                        childCategories.isNotEmpty) {
+                    if (categories.contains(category)) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("子カテゴリがある親カテゴリは削除できません")),
+                        const SnackBar(content: Text("既に存在するカテゴリです")),
                       );
                       return;
                     }
 
-                    if (categories.length <= 1) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("最後のカテゴリは削除できません")),
-                      );
-                      return;
-                    }
-
-                    final result = await showDialog<bool>(
-                      context: context,
-                      builder: (dialogContext) {
-                        return AlertDialog(
-                          title: const Text("カテゴリ削除"),
-
-                          content: Text(
-                            "「${CategoryHelper.displayName(category)}」を削除しますか？\n\n"
-                            "このカテゴリの既存データは「その他」に変更されます。",
-                          ),
-
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(dialogContext, false);
-                              },
-                              child: const Text("キャンセル"),
-                            ),
-
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(dialogContext, true);
-                              },
-                              child: const Text("削除"),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-
-                    if (result != true) {
-                      return;
-                    }
-
-                    // 削除時にデータ移行
-                    for (int i = 0; i < widget.expenses.length; i++) {
-                      final expense = widget.expenses[i];
-
-                      if (expense.category == category) {
-                        widget.expenses[i] = expense.copyWith(category: "その他");
-                      }
-                    }
-
-                    categories.remove(category);
+                    categories.add(category);
 
                     await CategoryService.saveCategories(categories);
 
-                    await widget.onSave();
+                    if (!mounted) return;
+
+                    categoryController.clear();
+
+                    setState(() {
+                      selectedParentCategory = category;
+                    });
+                  },
+                  child: const Text("追加"),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            const Text(
+              "子カテゴリ追加",
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 8),
+
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: selectedParentCategory,
+                    decoration: const InputDecoration(
+                      labelText: "親カテゴリ",
+                      border: OutlineInputBorder(),
+                    ),
+                    items: parentCategories
+                        .map(
+                          (category) => DropdownMenuItem(
+                            value: category,
+                            child: Text(CategoryHelper.displayName(category)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedParentCategory = value;
+                      });
+                    },
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                Expanded(
+                  child: TextField(
+                    controller: childCategoryController,
+                    decoration: const InputDecoration(
+                      labelText: "子カテゴリ名",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                ElevatedButton(
+                  onPressed: () async {
+                    final parent = selectedParentCategory;
+                    final child = childCategoryController.text.trim();
+
+                    if (parent == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("親カテゴリを選択してください")),
+                      );
+                      return;
+                    }
+
+                    if (child.isEmpty) {
+                      return;
+                    }
+
+                    if (child.contains('/')) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("子カテゴリ名に / は使わないでください")),
+                      );
+                      return;
+                    }
+
+                    final category = CategoryHelper.createChildCategory(
+                      parent: parent,
+                      child: child,
+                    );
+
+                    if (categories.contains(category)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("既に存在するカテゴリです")),
+                      );
+                      return;
+                    }
+
+                    categories.add(category);
+
+                    await CategoryService.saveCategories(categories);
 
                     if (!mounted) return;
+
+                    childCategoryController.clear();
 
                     setState(() {});
                   },
+                  child: const Text("追加"),
                 ),
-              );
-            }).toList(),
+              ],
+            ),
+          ],
+        ),
+
+        Expanded(
+          child: Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: ListView(
+                children: displayCategories.map((category) {
+                  final isChild = CategoryHelper.isChildCategory(category);
+
+                  return ListTile(
+                    leading: Icon(
+                      isChild ? Icons.subdirectory_arrow_right : Icons.folder,
+                    ),
+
+                    contentPadding: EdgeInsets.only(
+                      left: isChild ? 32 : 16,
+                      right: 16,
+                    ),
+
+                    title: Text(
+                      isChild
+                          ? CategoryHelper.childOf(category)
+                          : CategoryHelper.displayName(category),
+                    ),
+
+                    onTap: () {
+                      _showEditCategoryDialog(category);
+                    },
+
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete),
+
+                      onPressed: () async {
+                        if (category == "その他") {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("「その他」は削除できません")),
+                          );
+                          return;
+                        }
+
+                        final childCategories = categories.where((c) {
+                          return CategoryHelper.isChildCategory(c) &&
+                              CategoryHelper.parentOf(c) == category;
+                        }).toList();
+
+                        if (!CategoryHelper.isChildCategory(category) &&
+                            childCategories.isNotEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("子カテゴリがある親カテゴリは削除できません"),
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (categories.length <= 1) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("最後のカテゴリは削除できません")),
+                          );
+                          return;
+                        }
+
+                        final result = await showDialog<bool>(
+                          context: context,
+                          builder: (dialogContext) {
+                            return AlertDialog(
+                              title: const Text("カテゴリ削除"),
+                              content: Text(
+                                "「${CategoryHelper.displayName(category)}」を削除しますか？\n\n"
+                                "このカテゴリの既存データは「その他」に変更されます。",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(dialogContext, false);
+                                  },
+                                  child: const Text("キャンセル"),
+                                ),
+
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(dialogContext, true);
+                                  },
+                                  child: const Text("削除"),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+
+                        if (result != true) {
+                          return;
+                        }
+
+                        for (int i = 0; i < widget.expenses.length; i++) {
+                          final expense = widget.expenses[i];
+
+                          if (expense.category == category) {
+                            widget.expenses[i] = expense.copyWith(
+                              category: "その他",
+                            );
+                          }
+                        }
+
+                        categories.remove(category);
+
+                        await CategoryService.saveCategories(categories);
+
+                        await widget.onSave();
+
+                        if (!mounted) return;
+
+                        setState(() {});
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
           ),
         ),
 
-        _buildSectionTitle("データ管理"),
-
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () async {
-                  try {
-                    final path = await BackupService.saveBackup(
-                      widget.expenses,
-                    );
-
-                    if (!mounted) return;
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("バックアップを作成しました\n$path")),
-                    );
-                  } catch (e) {
-                    if (!mounted) return;
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("バックアップ作成に失敗しました")),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.backup),
-                label: const Text("バックアップ作成"),
-              ),
-
-              const SizedBox(height: 8),
-
-              ElevatedButton.icon(
-                onPressed: () async {
-                  await importCsvFile(isBackupRestore: true);
-                },
-                icon: const Icon(Icons.restore),
-                label: const Text("バックアップ復元"),
-              ),
-            ],
-          ),
-        ),
-
-        _buildSectionTitle("CSV"),
-
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final path = await CsvService.saveCsv(widget.expenses);
+        _buildSectionCard(
+          title: "データ管理",
+          children: [
+            ElevatedButton.icon(
+              onPressed: () async {
+                try {
+                  final path = await BackupService.saveBackup(widget.expenses);
 
                   if (!mounted) return;
 
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text("CSV保存完了\n$path")));
-                },
-                icon: const Icon(Icons.file_download),
-                label: const Text("CSV保存"),
-              ),
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("バックアップを作成しました\n$path")),
+                  );
+                } catch (e) {
+                  if (!mounted) return;
 
-              const SizedBox(height: 8),
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("バックアップ作成に失敗しました")),
+                  );
+                }
+              },
+              icon: const Icon(Icons.backup),
+              label: const Text("バックアップ作成"),
+            ),
 
-              OutlinedButton.icon(
-                onPressed: () async {
-                  await importCsvFile();
-                },
-                icon: const Icon(Icons.file_upload),
-                label: const Text("CSVインポート"),
-              ),
-            ],
-          ),
+            const SizedBox(height: 8),
+
+            ElevatedButton.icon(
+              onPressed: () async {
+                await importCsvFile(isBackupRestore: true);
+              },
+              icon: const Icon(Icons.restore),
+              label: const Text("バックアップ復元"),
+            ),
+          ],
+        ),
+
+        _buildSectionCard(
+          title: "CSV",
+          children: [
+            OutlinedButton.icon(
+              onPressed: () async {
+                final path = await CsvService.saveCsv(widget.expenses);
+
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text("CSV保存完了\n$path")));
+              },
+              icon: const Icon(Icons.file_download),
+              label: const Text("CSV保存"),
+            ),
+
+            const SizedBox(height: 8),
+
+            OutlinedButton.icon(
+              onPressed: () async {
+                await importCsvFile();
+              },
+              icon: const Icon(Icons.file_upload),
+              label: const Text("CSVインポート"),
+            ),
+          ],
         ),
 
         const SizedBox(height: 16),
@@ -738,6 +730,31 @@ class _SettingPageState extends State<SettingPage> {
         child: Text(
           title,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 12),
+
+            ...children,
+          ],
         ),
       ),
     );
