@@ -28,7 +28,14 @@ class SettingPage extends StatefulWidget {
 }
 
 class _SettingPageState extends State<SettingPage> {
-  List<String> categories = [];
+  bool _isIncomeCategoryMode = false;
+
+  List<String> _expenseCategories = [];
+  List<String> _incomeCategories = [];
+
+  List<String> get categories {
+    return _isIncomeCategoryMode ? _incomeCategories : _expenseCategories;
+  }
 
   final TextEditingController categoryController = TextEditingController();
 
@@ -51,59 +58,93 @@ class _SettingPageState extends State<SettingPage> {
   }
 
   Future<void> loadCategories() async {
-    categories = await CategoryService.loadCategories();
+    final expenseCategories = await CategoryService.loadExpenseCategories();
+    final incomeCategories = await CategoryService.loadIncomeCategories();
 
+    if (!mounted) return;
+
+    setState(() {
+      _expenseCategories = expenseCategories;
+      _incomeCategories = incomeCategories;
+      _syncSelectedParentCategory();
+    });
+  }
+
+  void _syncSelectedParentCategory() {
     final parentCategories = categories
         .where((category) => !CategoryHelper.isChildCategory(category))
         .toList();
 
-    if (parentCategories.isNotEmpty) {
-      if (selectedParentCategory == null ||
-          !parentCategories.contains(selectedParentCategory)) {
-        selectedParentCategory = parentCategories.first;
-      }
+    if (parentCategories.isEmpty) {
+      selectedParentCategory = null;
+      return;
     }
 
-    if (!mounted) return;
+    if (selectedParentCategory == null ||
+        !parentCategories.contains(selectedParentCategory)) {
+      selectedParentCategory = parentCategories.first;
+    }
+  }
 
-    setState(() {});
+  Future<void> _saveCurrentCategories() async {
+    if (_isIncomeCategoryMode) {
+      await CategoryService.saveIncomeCategories(_incomeCategories);
+    } else {
+      await CategoryService.saveExpenseCategories(_expenseCategories);
+    }
   }
 
   Future<void> _syncCategoriesFromExpenses(
     List<Expense> importedExpenses,
   ) async {
-    final categorySet = categories.toSet();
+    final expenseCategorySet = _expenseCategories.toSet();
+    final incomeCategorySet = _incomeCategories.toSet();
 
-    for (final expense in importedExpenses) {
-      final category = expense.category.trim();
+    void addCategory({required String category, required bool isIncome}) {
+      final targetCategories = isIncome
+          ? _incomeCategories
+          : _expenseCategories;
+      final targetSet = isIncome ? incomeCategorySet : expenseCategorySet;
 
       if (category.isEmpty) {
-        continue;
+        return;
       }
 
       // 子カテゴリの場合、親カテゴリも自動追加する
       if (CategoryHelper.isChildCategory(category)) {
         final parent = CategoryHelper.parentOf(category);
 
-        if (parent.isNotEmpty && !categorySet.contains(parent)) {
-          categories.add(parent);
-          categorySet.add(parent);
+        if (parent.isNotEmpty && !targetSet.contains(parent)) {
+          targetCategories.add(parent);
+          targetSet.add(parent);
         }
       }
 
       // 明細に使われているカテゴリをカテゴリ一覧へ追加する
-      if (!categorySet.contains(category)) {
-        categories.add(category);
-        categorySet.add(category);
+      if (!targetSet.contains(category)) {
+        targetCategories.add(category);
+        targetSet.add(category);
       }
     }
 
-    // 念のため「その他」を保証
-    if (!categorySet.contains("その他")) {
-      categories.add("その他");
+    for (final expense in importedExpenses) {
+      final category = expense.category.trim();
+
+      addCategory(category: category, isIncome: expense.isIncome);
     }
 
-    await CategoryService.saveCategories(categories);
+    if (!expenseCategorySet.contains("その他")) {
+      _expenseCategories.add("その他");
+    }
+
+    if (!incomeCategorySet.contains("その他")) {
+      _incomeCategories.add("その他");
+    }
+
+    await CategoryService.saveExpenseCategories(_expenseCategories);
+    await CategoryService.saveIncomeCategories(_incomeCategories);
+
+    _syncSelectedParentCategory();
   }
 
   Future<void> importCsvFile({bool isBackupRestore = false}) async {
@@ -182,7 +223,9 @@ class _SettingPageState extends State<SettingPage> {
 
       if (!mounted) return;
 
-      setState(() {});
+      setState(() {
+        _syncSelectedParentCategory();
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -336,13 +379,15 @@ class _SettingPageState extends State<SettingPage> {
                   }
                 }
 
-                await CategoryService.saveCategories(categories);
+                await _saveCurrentCategories();
 
                 await widget.onSave();
 
                 if (!mounted) return;
 
-                setState(() {});
+                setState(() {
+                  _syncSelectedParentCategory();
+                });
 
                 Navigator.pop(dialogContext);
               },
@@ -364,10 +409,40 @@ class _SettingPageState extends State<SettingPage> {
 
     final displayCategories = _buildCategoryDisplayList();
 
-    return Column(
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 16),
       children: [
         _buildSectionCard(
-          title: "カテゴリ追加",
+          title: "カテゴリ種別",
+          children: [
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(
+                  value: false,
+                  label: Text("支出カテゴリ"),
+                  icon: Icon(Icons.remove_circle_outline),
+                ),
+                ButtonSegment(
+                  value: true,
+                  label: Text("収入カテゴリ"),
+                  icon: Icon(Icons.add_circle_outline),
+                ),
+              ],
+              selected: {_isIncomeCategoryMode},
+              onSelectionChanged: (selection) {
+                setState(() {
+                  _isIncomeCategoryMode = selection.first;
+                  _syncSelectedParentCategory();
+                  categoryController.clear();
+                  childCategoryController.clear();
+                });
+              },
+            ),
+          ],
+        ),
+
+        _buildSectionCard(
+          title: _isIncomeCategoryMode ? "収入カテゴリ追加" : "支出カテゴリ追加",
           children: [
             const Text(
               "親カテゴリ追加",
@@ -414,7 +489,7 @@ class _SettingPageState extends State<SettingPage> {
 
                     categories.add(category);
 
-                    await CategoryService.saveCategories(categories);
+                    await _saveCurrentCategories();
 
                     if (!mounted) return;
 
@@ -514,13 +589,15 @@ class _SettingPageState extends State<SettingPage> {
 
                     categories.add(category);
 
-                    await CategoryService.saveCategories(categories);
+                    await _saveCurrentCategories();
 
                     if (!mounted) return;
 
                     childCategoryController.clear();
 
-                    setState(() {});
+                    setState(() {
+                      _syncSelectedParentCategory();
+                    });
                   },
                   child: const Text("追加"),
                 ),
@@ -529,12 +606,14 @@ class _SettingPageState extends State<SettingPage> {
           ],
         ),
 
-        Expanded(
+        SizedBox(
+          height: 260,
           child: Card(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Padding(
               padding: const EdgeInsets.all(8),
               child: ListView(
+                primary: false,
                 children: displayCategories.map((category) {
                   final isChild = CategoryHelper.isChildCategory(category);
 
@@ -635,13 +714,15 @@ class _SettingPageState extends State<SettingPage> {
 
                         categories.remove(category);
 
-                        await CategoryService.saveCategories(categories);
+                        await _saveCurrentCategories();
 
                         await widget.onSave();
 
                         if (!mounted) return;
 
-                        setState(() {});
+                        setState(() {
+                          _syncSelectedParentCategory();
+                        });
                       },
                     ),
                   );

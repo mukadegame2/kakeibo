@@ -1,33 +1,46 @@
 import 'package:flutter/material.dart';
 
+import '../utils/format_helper.dart';
+
 class SummaryCard extends StatelessWidget {
   final int income;
   final int expense;
+  final int balance;
 
-  const SummaryCard({super.key, required this.income, required this.expense});
+  const SummaryCard({
+    super.key,
+    required this.income,
+    required this.expense,
+    required this.balance,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final balance = income - expense;
+    final balanceColor = balance >= 0 ? Colors.blue : Colors.red;
 
     return Card(
-      margin: const EdgeInsets.all(8),
-
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-
-        child: Column(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 16,
+          runSpacing: 4,
           children: [
-            Text("収入：¥$income", style: const TextStyle(fontSize: 16)),
-
-            Text("支出：¥$expense", style: const TextStyle(fontSize: 16)),
-
             Text(
-              "収支：¥$balance",
+              '収入：${FormatHelper.yen(income)}',
+              style: const TextStyle(fontSize: 14),
+            ),
+            Text(
+              '支出：${FormatHelper.yen(expense)}',
+              style: const TextStyle(fontSize: 14),
+            ),
+            Text(
+              '収支：${FormatHelper.signedYen(balance)}',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: balance >= 0 ? Colors.blue : Colors.red,
+                color: balanceColor,
               ),
             ),
           ],

@@ -7,6 +7,7 @@ import '../widgets/month_selector.dart';
 import '../services/category_helper.dart';
 import '../services/category_service.dart';
 import '../widgets/expense_edit_dialog.dart';
+import '../utils/format_helper.dart';
 
 // ========================================
 // カレンダー画面
@@ -40,14 +41,19 @@ class _CalendarPageState extends State<CalendarPage> {
   // 選択日の保持
   DateTime? selectedDay;
 
-  List<String> categories = [];
+  List<String> _expenseCategories = [];
+  List<String> _incomeCategories = [];
 
   Future<void> _loadCategories() async {
-    categories = await CategoryService.loadCategories();
+    final expenseCategories = await CategoryService.loadExpenseCategories();
+    final incomeCategories = await CategoryService.loadIncomeCategories();
 
     if (!mounted) return;
 
-    setState(() {});
+    setState(() {
+      _expenseCategories = expenseCategories;
+      _incomeCategories = incomeCategories;
+    });
   }
 
   int _getDailyTotal(DateTime day) {
@@ -71,7 +77,9 @@ class _CalendarPageState extends State<CalendarPage> {
     final updatedExpense = await showExpenseEditDialog(
       context: context,
       expense: expense,
-      categories: categories,
+      categories: expense.isIncome ? _incomeCategories : _expenseCategories,
+      expenseCategories: _expenseCategories,
+      incomeCategories: _incomeCategories,
       canEditDate: true,
       canEditCategory: true,
     );
@@ -110,10 +118,78 @@ class _CalendarPageState extends State<CalendarPage> {
     }).toList();
   }
 
+  Widget _buildDayCell(
+    DateTime day, {
+    bool isToday = false,
+    bool isSelected = false,
+    bool isOutside = false,
+  }) {
+    final total = _getDailyTotal(day);
+    final hasExpenses = _getExpensesForDay(day).isNotEmpty;
+
+    final isOutsideMonth = isOutside || day.month != selectedMonth.month;
+
+    Color backgroundColor = Colors.transparent;
+    Color dayTextColor = isOutsideMonth ? Colors.grey.shade300 : Colors.black;
+    Color amountTextColor;
+
+    if (isOutsideMonth) {
+      amountTextColor = total >= 0 ? Colors.blue.shade300 : Colors.red.shade300;
+    } else {
+      amountTextColor = total >= 0 ? Colors.blue : Colors.red;
+    }
+
+    if (isToday) {
+      backgroundColor = Colors.indigo.shade50;
+    }
+
+    if (isSelected) {
+      backgroundColor = Colors.indigo;
+      dayTextColor = Colors.white;
+      amountTextColor = Colors.white;
+    }
+
+    return SizedBox.expand(
+      child: Container(
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          border: Border.all(color: Colors.grey.shade300, width: 0.5),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "${day.day}",
+              style: TextStyle(
+                fontSize: 14,
+                color: dayTextColor,
+                fontWeight: isToday || isSelected
+                    ? FontWeight.bold
+                    : FontWeight.normal,
+              ),
+            ),
+
+            if (hasExpenses)
+              Text(
+                FormatHelper.signedYen(total),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: amountTextColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCalendar({required int flex}) {
     return Expanded(
       flex: flex,
       child: TableCalendar(
+        locale: 'ja_JP',
+
         calendarFormat: CalendarFormat.month,
         availableCalendarFormats: const {CalendarFormat.month: '月'},
         firstDay: DateTime(2020),
@@ -121,31 +197,24 @@ class _CalendarPageState extends State<CalendarPage> {
         focusedDay: selectedMonth,
 
         headerVisible: false,
-
+        daysOfWeekHeight: 28,
         rowHeight: 38,
 
         calendarBuilders: CalendarBuilders(
           defaultBuilder: (context, day, focusedDay) {
-            final total = _getDailyTotal(day);
+            return _buildDayCell(day);
+          },
 
-            return Container(
-              margin: const EdgeInsets.all(2),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text("${day.day}", style: const TextStyle(fontSize: 14)),
+          todayBuilder: (context, day, focusedDay) {
+            return _buildDayCell(day, isToday: true);
+          },
 
-                  if (_getExpensesForDay(day).isNotEmpty)
-                    Text(
-                      total >= 0 ? "+¥$total" : "-¥${total.abs()}",
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: total >= 0 ? Colors.blue : Colors.red,
-                      ),
-                    ),
-                ],
-              ),
-            );
+          selectedBuilder: (context, day, focusedDay) {
+            return _buildDayCell(day, isSelected: true);
+          },
+
+          outsideBuilder: (context, day, focusedDay) {
+            return _buildDayCell(day, isOutside: true);
           },
         ),
 
@@ -178,8 +247,8 @@ class _CalendarPageState extends State<CalendarPage> {
                       ),
                       trailing: Text(
                         expense.isIncome
-                            ? "+¥${expense.amount}"
-                            : "-¥${expense.amount}",
+                            ? FormatHelper.signedYen(expense.amount)
+                            : FormatHelper.signedYen(-expense.amount),
                       ),
                       onTap: () {
                         _showEditDialog(expense);
@@ -282,7 +351,11 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
         ),
 
-        SummaryCard(income: income, expense: expense),
+        SummaryCard(
+          income: income,
+          expense: expense,
+          balance: income - expense,
+        ),
 
         _buildCalendar(flex: 2),
 

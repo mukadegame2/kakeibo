@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../models/expense.dart';
+import '../utils/format_helper.dart';
 
 class MonthlyBalanceChart extends StatelessWidget {
   final List<Expense> expenses;
@@ -15,103 +16,122 @@ class MonthlyBalanceChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentYear = year;
-
-    List<FlSpot> spots = [];
+    final monthlyBalances = <int, int>{};
 
     for (int month = 1; month <= 12; month++) {
-      final income = expenses
-          .where(
-            (e) =>
-                e.isIncome &&
-                e.date.year == currentYear &&
-                e.date.month == month,
-          )
-          .fold(0, (sum, e) => sum + e.amount);
-
-      final expense = expenses
-          .where(
-            (e) =>
-                !e.isIncome &&
-                e.date.year == currentYear &&
-                e.date.month == month,
-          )
-          .fold(0, (sum, e) => sum + e.amount);
-
-      final balance = income - expense;
-
-      spots.add(FlSpot(month.toDouble(), balance.toDouble()));
+      monthlyBalances[month] = 0;
     }
 
-    return Center(
-      child: SizedBox(
-        width: 700,
-        height: 180,
-        child: LineChart(
-          LineChartData(
-            extraLinesData: ExtraLinesData(
-              horizontalLines: [
-                HorizontalLine(y: 0, strokeWidth: 2, dashArray: [5, 5]),
-              ],
-            ),
-            minX: 1,
-            maxX: 12,
+    for (final expense in expenses) {
+      if (expense.date.year != year) {
+        continue;
+      }
 
-            titlesData: FlTitlesData(
-              topTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
+      final month = expense.date.month;
+      final amount = expense.isIncome ? expense.amount : -expense.amount;
 
-              rightTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
+      monthlyBalances[month] = (monthlyBalances[month] ?? 0) + amount;
+    }
 
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 24,
-                  interval: 1,
-                  getTitlesWidget: (value, meta) {
-                    if (value < 1 || value > 12) {
-                      return const SizedBox();
-                    }
+    final maxAbsValue = monthlyBalances.values.fold<int>(
+      0,
+      (max, value) => value.abs() > max ? value.abs() : max,
+    );
 
-                    return Text(
-                      "${value.toInt()}月",
-                      style: const TextStyle(fontSize: 10),
-                    );
-                  },
-                ),
-              ),
+    final chartMaxY = maxAbsValue == 0 ? 1000.0 : maxAbsValue * 1.25;
+    final chartMinY = maxAbsValue == 0 ? -1000.0 : -maxAbsValue * 1.25;
 
-              leftTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 40,
-                  getTitlesWidget: (value, meta) {
-                    return Text(
-                      "¥${value.toInt()}",
-                      style: const TextStyle(fontSize: 10),
-                    );
-                  },
-                ),
-              ),
-            ),
+    return SizedBox(
+      width: 700,
+      height: 220,
+      child: BarChart(
+        BarChartData(
+          minY: chartMinY,
+          maxY: chartMaxY,
 
-            lineBarsData: [
-              LineChartBarData(
-                spots: spots,
-                isCurved: false,
-                dotData: FlDotData(
-                  show: true,
+          gridData: const FlGridData(show: true),
 
-                  getDotPainter: (spot, percent, bar, index) {
-                    return FlDotCirclePainter(radius: 4);
-                  },
-                ),
-              ),
-            ],
+          borderData: FlBorderData(
+            show: true,
+            border: Border.all(color: Colors.grey, width: 1),
           ),
+
+          titlesData: FlTitlesData(
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 58,
+                getTitlesWidget: (value, meta) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Text(
+                      FormatHelper.yen(value.toInt()),
+                      style: const TextStyle(fontSize: 10),
+                      textAlign: TextAlign.right,
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  final month = value.toInt();
+
+                  if (month < 1 || month > 12) {
+                    return const SizedBox();
+                  }
+
+                  return Text('$month月', style: const TextStyle(fontSize: 10));
+                },
+              ),
+            ),
+          ),
+
+          barTouchData: BarTouchData(
+            enabled: true,
+            touchTooltipData: BarTouchTooltipData(
+              fitInsideHorizontally: true,
+              fitInsideVertically: true,
+              tooltipMargin: 8,
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                return BarTooltipItem(
+                  FormatHelper.signedYen(rod.toY.toInt()),
+                  const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                );
+              },
+            ),
+          ),
+
+          barGroups: monthlyBalances.entries.map((entry) {
+            final month = entry.key;
+            final balance = entry.value;
+
+            return BarChartGroupData(
+              x: month,
+              barRods: [
+                BarChartRodData(
+                  toY: balance.toDouble(),
+                  width: 18,
+                  color: balance >= 0 ? Colors.blue : Colors.red,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ],
+            );
+          }).toList(),
         ),
       ),
     );

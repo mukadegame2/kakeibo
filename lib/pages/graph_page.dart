@@ -7,6 +7,8 @@ import '../widgets/month_selector.dart';
 import '../widgets/monthly_balance_chart.dart';
 import 'category_detail_page.dart';
 import '../services/category_helper.dart';
+import '../utils/format_helper.dart';
+import '../widgets/summary_card.dart';
 
 // ========================================
 // グラフ画面
@@ -261,44 +263,15 @@ class _GraphPageState extends State<GraphPage> {
           // 月切替とグラフの間の余白
           const SizedBox(height: 20),
 
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  Text("収入 : ¥$income"),
-                  Text("支出 : ¥$expense"),
-
-                  Text(
-                    "収支 : ¥$balance",
-                    style: TextStyle(
-                      color: balance >= 0 ? Colors.blue : Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // カテゴリ別集計のタイトル
-          const Text(
-            "カテゴリ別支出",
-            style: TextStyle(
-              fontSize: 20, // フォントサイズ
-              fontWeight: FontWeight.bold, // フォントの太さ
-            ),
-          ),
+          SummaryCard(income: income, expense: expense, balance: balance),
 
           // タイトルとグラフの間の余白
-          const SizedBox(height: 10),
-
-          const Text(
-            "カテゴリランキング",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-
           const SizedBox(height: 5),
+
+          Text(
+            showIncome ? "カテゴリ別収入" : "カテゴリ別支出",
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
 
           // グラフ描画
           SizedBox(
@@ -307,7 +280,9 @@ class _GraphPageState extends State<GraphPage> {
                 ? const Center(child: Text("この月のデータはありません"))
                 : PieChart(
                     PieChartData(
+                      startDegreeOffset: -90,
                       sections: sections,
+                      centerSpaceRadius: 50,
 
                       pieTouchData: PieTouchData(
                         touchCallback: (event, response) {
@@ -360,6 +335,16 @@ class _GraphPageState extends State<GraphPage> {
 
           const SizedBox(height: 8),
 
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              showIncome ? "カテゴリ収入ランキング" : "カテゴリ支出ランキング",
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
           // カテゴリー一覧表示
           // カテゴリランキング
           SizedBox(
@@ -399,7 +384,7 @@ class _GraphPageState extends State<GraphPage> {
                         subtitle: Text("${percent.toStringAsFixed(1)}%"),
 
                         trailing: Text(
-                          "¥${data.value}",
+                          FormatHelper.yen(data.value),
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
 

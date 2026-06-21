@@ -5,6 +5,7 @@ import '../models/expense.dart';
 import '../services/category_service.dart';
 import '../services/category_helper.dart';
 import '../widgets/expense_edit_dialog.dart';
+import '../utils/format_helper.dart';
 
 // ========================================
 // 入力画面
@@ -40,7 +41,9 @@ class _InputPageState extends State<InputPage> {
     final updatedExpense = await showExpenseEditDialog(
       context: context,
       expense: expense,
-      categories: _categories,
+      categories: expense.isIncome ? _incomeCategories : _expenseCategories,
+      expenseCategories: _expenseCategories,
+      incomeCategories: _incomeCategories,
       canEditDate: true,
       canEditCategory: true,
     );
@@ -88,8 +91,16 @@ class _InputPageState extends State<InputPage> {
   // 選択中のカテゴリ
   String _selectedCategory = '食費';
 
-  // カテゴリ一覧
-  List<String> _categories = [];
+  // 支出カテゴリ一覧
+  List<String> _expenseCategories = [];
+
+  // 収入カテゴリ一覧
+  List<String> _incomeCategories = [];
+
+  // 現在の収支種別に応じたカテゴリ一覧
+  List<String> get _currentCategories {
+    return _isIncome ? _incomeCategories : _expenseCategories;
+  }
 
   @override
   void initState() {
@@ -105,19 +116,40 @@ class _InputPageState extends State<InputPage> {
     super.dispose();
   }
 
-  Future<void> _loadCategories() async {
-    _categories = await CategoryService.loadCategories();
+  void _syncSelectedCategoryWithType() {
+    final currentCategories = _currentCategories;
 
-    if (_categories.isNotEmpty) {
-      _selectedCategory = _categories.first;
+    if (currentCategories.isEmpty) {
+      return;
     }
 
-    setState(() {});
+    if (!currentCategories.contains(_selectedCategory)) {
+      _selectedCategory = currentCategories.first;
+    }
   }
 
-  List<String> _buildCategoryDisplayList() {
-    final parentCategories = _categories
+  Future<void> _loadCategories() async {
+    final expenseCategories = await CategoryService.loadExpenseCategories();
+    final incomeCategories = await CategoryService.loadIncomeCategories();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _expenseCategories = expenseCategories;
+      _incomeCategories = incomeCategories;
+      _syncSelectedCategoryWithType();
+    });
+  }
+
+  List<String> _buildCategoryDisplayList(List<String> sourceCategories) {
+    final parentCategories = sourceCategories
         .where((category) => !CategoryHelper.isChildCategory(category))
+        .toList();
+
+    final childCategories = sourceCategories
+        .where((category) => CategoryHelper.isChildCategory(category))
         .toList();
 
     final displayList = <String>[];
@@ -125,17 +157,15 @@ class _InputPageState extends State<InputPage> {
     for (final parent in parentCategories) {
       displayList.add(parent);
 
-      final children = _categories.where((category) {
-        return CategoryHelper.isChildCategory(category) &&
-            CategoryHelper.parentOf(category) == parent;
+      final children = childCategories.where((category) {
+        return CategoryHelper.parentOf(category) == parent;
       }).toList();
 
       displayList.addAll(children);
     }
 
-    final orphanChildren = _categories.where((category) {
-      return CategoryHelper.isChildCategory(category) &&
-          !parentCategories.contains(CategoryHelper.parentOf(category));
+    final orphanChildren = childCategories.where((category) {
+      return !displayList.contains(category);
     }).toList();
 
     displayList.addAll(orphanChildren);
@@ -171,11 +201,13 @@ class _InputPageState extends State<InputPage> {
         )
         .fold(0, (sum, e) => sum + e.amount);
 
-    if (_categories.isEmpty) {
+    if (_expenseCategories.isEmpty || _incomeCategories.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final displayCategories = _buildCategoryDisplayList();
+    final currentCategories = _currentCategories;
+
+    final displayCategories = _buildCategoryDisplayList(currentCategories);
 
     // ========================================
     // 収支計算
@@ -185,9 +217,9 @@ class _InputPageState extends State<InputPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            '支出入力',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Text(
+            _isIncome ? '収入入力' : '支出入力',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
 
           const SizedBox(height: 24),
@@ -211,6 +243,7 @@ class _InputPageState extends State<InputPage> {
           // カテゴリ選択
           // ========================================
           DropdownButtonFormField<String>(
+            key: ValueKey(_isIncome),
             initialValue: _selectedCategory,
             decoration: const InputDecoration(
               labelText: 'カテゴリ',
@@ -219,18 +252,22 @@ class _InputPageState extends State<InputPage> {
             items: displayCategories.map((category) {
               final isChild = CategoryHelper.isChildCategory(category);
 
-              return DropdownMenuItem(
+              return DropdownMenuItem<String>(
                 value: category,
                 child: Text(
                   isChild
                       ? "   ↳ ${CategoryHelper.childOf(category)}"
-                      : "📁 ${CategoryHelper.displayName(category)}",
+                      : "📁 $category",
                 ),
               );
             }).toList(),
             onChanged: (value) {
+              if (value == null) {
+                return;
+              }
+
               setState(() {
-                _selectedCategory = value!;
+                _selectedCategory = value;
               });
             },
           ),
@@ -249,6 +286,7 @@ class _InputPageState extends State<InputPage> {
             onSelectionChanged: (Set<bool> newSelection) {
               setState(() {
                 _isIncome = newSelection.first;
+                _syncSelectedCategoryWithType();
               });
             },
           ),
@@ -266,6 +304,7 @@ class _InputPageState extends State<InputPage> {
               // 日付選択ダイアログ表示
               final pickedDate = await showDatePicker(
                 context: context,
+                locale: const Locale('ja', 'JP'),
                 initialDate: _selectedDate,
                 firstDate: DateTime(2020),
                 lastDate: DateTime(2100),
@@ -355,7 +394,11 @@ class _InputPageState extends State<InputPage> {
           // ========================================
           // 今月の収支サマリー
           // ========================================
-          SummaryCard(income: totalIncome, expense: totalExpense),
+          SummaryCard(
+            income: totalIncome,
+            expense: totalExpense,
+            balance: totalIncome - totalExpense,
+          ),
 
           const SizedBox(height: 16),
 
@@ -378,8 +421,8 @@ class _InputPageState extends State<InputPage> {
                   children: [
                     Text(
                       expense.isIncome
-                          ? '+¥${expense.amount}'
-                          : '-¥${expense.amount}',
+                          ? FormatHelper.signedYen(expense.amount)
+                          : FormatHelper.signedYen(-expense.amount),
                     ),
 
                     IconButton(

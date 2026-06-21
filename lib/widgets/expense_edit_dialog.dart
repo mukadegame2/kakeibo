@@ -7,15 +7,19 @@ Future<Expense?> showExpenseEditDialog({
   required BuildContext context,
   required Expense expense,
   required List<String> categories,
+  List<String>? expenseCategories,
+  List<String>? incomeCategories,
   bool canEditDate = true,
   bool canEditCategory = true,
 }) {
   return showDialog<Expense>(
     context: context,
-    builder: (dialogContext) {
+    builder: (context) {
       return _ExpenseEditDialog(
         expense: expense,
         categories: categories,
+        expenseCategories: expenseCategories ?? categories,
+        incomeCategories: incomeCategories ?? categories,
         canEditDate: canEditDate,
         canEditCategory: canEditCategory,
       );
@@ -26,12 +30,16 @@ Future<Expense?> showExpenseEditDialog({
 class _ExpenseEditDialog extends StatefulWidget {
   final Expense expense;
   final List<String> categories;
+  final List<String> expenseCategories;
+  final List<String> incomeCategories;
   final bool canEditDate;
   final bool canEditCategory;
 
   const _ExpenseEditDialog({
     required this.expense,
     required this.categories,
+    required this.expenseCategories,
+    required this.incomeCategories,
     required this.canEditDate,
     required this.canEditCategory,
   });
@@ -48,6 +56,22 @@ class _ExpenseEditDialogState extends State<_ExpenseEditDialog> {
   late String selectedCategory;
   late bool editIsIncome;
 
+  List<String> get _currentCategories {
+    return editIsIncome ? widget.incomeCategories : widget.expenseCategories;
+  }
+
+  void _syncSelectedCategoryWithType() {
+    final currentCategories = _currentCategories;
+
+    if (currentCategories.isEmpty) {
+      return;
+    }
+
+    if (!currentCategories.contains(selectedCategory)) {
+      selectedCategory = currentCategories.first;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +85,8 @@ class _ExpenseEditDialogState extends State<_ExpenseEditDialog> {
     editDate = widget.expense.date;
     selectedCategory = widget.expense.category;
     editIsIncome = widget.expense.isIncome;
+
+    _syncSelectedCategoryWithType();
   }
 
   @override
@@ -108,6 +134,7 @@ class _ExpenseEditDialogState extends State<_ExpenseEditDialog> {
   @override
   Widget build(BuildContext context) {
     final displayCategories = _buildCategoryDisplayList();
+    final currentCategories = _currentCategories;
 
     return AlertDialog(
       title: const Text("編集"),
@@ -129,9 +156,10 @@ class _ExpenseEditDialogState extends State<_ExpenseEditDialog> {
               ButtonSegment(value: true, label: Text("収入")),
             ],
             selected: {editIsIncome},
-            onSelectionChanged: (value) {
+            onSelectionChanged: (Set<bool> newSelection) {
               setState(() {
-                editIsIncome = value.first;
+                editIsIncome = newSelection.first;
+                _syncSelectedCategoryWithType();
               });
             },
           ),
@@ -140,31 +168,35 @@ class _ExpenseEditDialogState extends State<_ExpenseEditDialog> {
             const SizedBox(height: 16),
 
             DropdownButtonFormField<String>(
-              value: displayCategories.contains(selectedCategory)
-                  ? selectedCategory
-                  : null,
-              decoration: const InputDecoration(labelText: "カテゴリ"),
-              items: displayCategories.map((category) {
+              key: ValueKey(editIsIncome),
+              value: selectedCategory,
+              decoration: const InputDecoration(
+                labelText: 'カテゴリ',
+                border: OutlineInputBorder(),
+              ),
+              items: currentCategories.map((category) {
                 final isChild = CategoryHelper.isChildCategory(category);
 
-                return DropdownMenuItem(
+                return DropdownMenuItem<String>(
                   value: category,
                   child: Text(
                     isChild
                         ? "   ↳ ${CategoryHelper.childOf(category)}"
-                        : "📁 ${CategoryHelper.displayName(category)}",
+                        : "📁 $category",
                   ),
                 );
               }).toList(),
-              onChanged: (value) {
-                if (value == null) {
-                  return;
-                }
+              onChanged: widget.canEditCategory
+                  ? (value) {
+                      if (value == null) {
+                        return;
+                      }
 
-                setState(() {
-                  selectedCategory = value;
-                });
-              },
+                      setState(() {
+                        selectedCategory = value;
+                      });
+                    }
+                  : null,
             ),
           ],
 
@@ -178,6 +210,7 @@ class _ExpenseEditDialogState extends State<_ExpenseEditDialog> {
               onTap: () async {
                 final pickedDate = await showDatePicker(
                   context: context,
+                  locale: const Locale('ja', 'JP'),
                   initialDate: editDate,
                   firstDate: DateTime(2020),
                   lastDate: DateTime(2100),

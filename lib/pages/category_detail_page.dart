@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/category_service.dart';
 import '../widgets/expense_edit_dialog.dart';
+import '../utils/format_helper.dart';
 
 class CategoryDetailPage extends StatefulWidget {
   final String category;
@@ -25,14 +26,19 @@ class CategoryDetailPage extends StatefulWidget {
 class _CategoryDetailPageState extends State<CategoryDetailPage> {
   DateTime selectedMonth = DateTime.now();
 
-  List<String> categories = [];
+  List<String> _expenseCategories = [];
+  List<String> _incomeCategories = [];
 
   Future<void> _loadCategories() async {
-    categories = await CategoryService.loadCategories();
+    final expenseCategories = await CategoryService.loadExpenseCategories();
+    final incomeCategories = await CategoryService.loadIncomeCategories();
 
     if (!mounted) return;
 
-    setState(() {});
+    setState(() {
+      _expenseCategories = expenseCategories;
+      _incomeCategories = incomeCategories;
+    });
   }
 
   bool _isTargetCategory(Expense expense) {
@@ -79,7 +85,9 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
     final updatedExpense = await showExpenseEditDialog(
       context: context,
       expense: expense,
-      categories: categories,
+      categories: expense.isIncome ? _incomeCategories : _expenseCategories,
+      expenseCategories: _expenseCategories,
+      incomeCategories: _incomeCategories,
       canEditDate: true,
       canEditCategory: true,
     );
@@ -140,7 +148,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                   children: [
                     Text(entry.key),
                     Text(
-                      "¥${entry.value}",
+                      FormatHelper.yen(entry.value),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -219,6 +227,13 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
 
     monthExpenses.sort((a, b) => b.date.compareTo(a.date));
 
+    final maxMonthlyTotal = monthlyTotals.values.fold<int>(
+      0,
+      (max, value) => value > max ? value : max,
+    );
+
+    final chartMaxY = maxMonthlyTotal == 0 ? 1000.0 : maxMonthlyTotal * 1.25;
+
     return Scaffold(
       appBar: AppBar(title: Text(CategoryHelper.displayName(widget.category))),
 
@@ -229,12 +244,74 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
             Expanded(
               child: BarChart(
                 BarChartData(
+                  maxY: chartMaxY,
                   titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 58,
+                        getTitlesWidget: (value, meta) {
+                          if (value < 0) {
+                            return const SizedBox();
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Text(
+                              FormatHelper.yen(value.toInt()),
+                              style: const TextStyle(fontSize: 10),
+                              textAlign: TextAlign.right,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final month = value.toInt();
+
+                          if (month < 1 || month > 12) {
+                            return const SizedBox();
+                          }
+
+                          return Text(
+                            "$month月",
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        },
+                      ),
+                    ),
+
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+
                     rightTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
                     ),
                   ),
                   barTouchData: BarTouchData(
+                    enabled: true,
+
+                    touchTooltipData: BarTouchTooltipData(
+                      fitInsideHorizontally: true,
+                      fitInsideVertically: true,
+                      tooltipMargin: 8,
+
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        return BarTooltipItem(
+                          FormatHelper.yen(rod.toY.toInt()),
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      },
+                    ),
+
                     touchCallback: (event, response) {
                       if (response == null || response.spot == null) return;
                       if (event is! FlTapUpEvent) return;
@@ -311,7 +388,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
             const SizedBox(height: 8),
 
             Text(
-              "合計 ¥$monthTotal",
+              "合計 ${FormatHelper.yen(monthTotal)}",
               style: const TextStyle(
                 fontSize: 18,
                 color: Colors.blue,
@@ -338,7 +415,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text("¥${expense.amount}"),
+                            Text(FormatHelper.yen(expense.amount)),
 
                             IconButton(
                               icon: const Icon(Icons.edit),
