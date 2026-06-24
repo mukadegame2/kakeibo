@@ -14,6 +14,40 @@ class MonthlyBalanceChart extends StatelessWidget {
     required this.year,
   });
 
+  double _calculateYAxisInterval(int maxAbsValue) {
+    if (maxAbsValue <= 3000) {
+      return 1000;
+    }
+
+    if (maxAbsValue <= 10000) {
+      return 2000;
+    }
+
+    if (maxAbsValue <= 30000) {
+      return 5000;
+    }
+
+    if (maxAbsValue <= 100000) {
+      return 20000;
+    }
+
+    if (maxAbsValue <= 300000) {
+      return 50000;
+    }
+
+    return 100000;
+  }
+
+  String _formatAxisYen(double value) {
+    final roundedValue = value.round();
+
+    if (roundedValue < 0) {
+      return '-${FormatHelper.yen(roundedValue.abs())}';
+    }
+
+    return FormatHelper.yen(roundedValue);
+  }
+
   @override
   Widget build(BuildContext context) {
     final monthlyBalances = <int, int>{};
@@ -38,16 +72,27 @@ class MonthlyBalanceChart extends StatelessWidget {
       (max, value) => value.abs() > max ? value.abs() : max,
     );
 
-    final chartMaxY = maxAbsValue == 0 ? 1000.0 : maxAbsValue * 1.25;
-    final chartMinY = maxAbsValue == 0 ? -1000.0 : -maxAbsValue * 1.25;
+    final yInterval = _calculateYAxisInterval(maxAbsValue);
+
+    final chartMaxY = maxAbsValue == 0
+        ? 1000.0
+        : ((maxAbsValue * 1.25) / yInterval).ceil() * yInterval;
+
+    final chartMinY = -chartMaxY;
 
     return SizedBox(
       width: 700,
-      height: 220,
+      height: 240,
       child: BarChart(
         BarChartData(
           minY: chartMinY,
           maxY: chartMaxY,
+
+          extraLinesData: ExtraLinesData(
+            horizontalLines: [
+              HorizontalLine(y: 0, color: Colors.black54, strokeWidth: 1.2),
+            ],
+          ),
 
           gridData: const FlGridData(show: true),
 
@@ -68,12 +113,25 @@ class MonthlyBalanceChart extends StatelessWidget {
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 58,
+                reservedSize: 76,
+                interval: yInterval,
                 getTitlesWidget: (value, meta) {
+                  final roundedValue = value.round();
+
+                  if (roundedValue < chartMinY || roundedValue > chartMaxY) {
+                    return const SizedBox();
+                  }
+
+                  final interval = yInterval.round();
+
+                  if (interval > 0 && roundedValue % interval != 0) {
+                    return const SizedBox();
+                  }
+
                   return Padding(
-                    padding: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.only(right: 6),
                     child: Text(
-                      FormatHelper.yen(value.toInt()),
+                      _formatAxisYen(value),
                       style: const TextStyle(fontSize: 10),
                       textAlign: TextAlign.right,
                     ),

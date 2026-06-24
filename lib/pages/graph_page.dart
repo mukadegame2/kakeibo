@@ -9,6 +9,10 @@ import 'category_detail_page.dart';
 import '../services/category_helper.dart';
 import '../utils/format_helper.dart';
 import '../widgets/summary_card.dart';
+import '../widgets/savings_balance_chart.dart';
+import '../services/savings_service.dart';
+
+enum GraphMode { expense, income, savings }
 
 // ========================================
 // グラフ画面
@@ -43,16 +47,33 @@ class _GraphPageState extends State<GraphPage> {
     setState(() {});
   }
 
+  int initialSavings = 0;
+
+  Future<void> loadInitialSavings() async {
+    final value = await SavingsService.loadInitialSavings();
+
+    if (!mounted) return;
+
+    setState(() {
+      initialSavings = value;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     loadCategories();
+    loadInitialSavings();
   }
 
   // 表示中の年月
   DateTime selectedMonth = DateTime.now();
 
-  bool showIncome = false;
+  GraphMode graphMode = GraphMode.expense;
+
+  bool get showIncome => graphMode == GraphMode.income;
+
+  bool get isSavingsMode => graphMode == GraphMode.savings;
 
   List<int> _buildAvailableYears() {
     final years = widget.expenses
@@ -102,6 +123,10 @@ class _GraphPageState extends State<GraphPage> {
     for (var expense in widget.expenses) {
       if (expense.date.year != selectedMonth.year ||
           expense.date.month != selectedMonth.month) {
+        double total = categoryTotals.values.fold(
+          0,
+          (sum, value) => sum + value,
+        );
         continue;
       }
 
@@ -128,14 +153,16 @@ class _GraphPageState extends State<GraphPage> {
     ];
 
     // 合計金額（グラフの割合計算用）
-    double total = categoryTotals.values.fold(0, (sum, value) => sum + value);
-    final categoryList = categoryTotals.entries.toList();
+    final sortedCategoryList =
+        categoryTotals.entries.where((entry) => entry.value > 0).toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
-    final rankingList = categoryTotals.entries
-        .where((entry) => entry.value > 0)
-        .toList();
+    final double total = sortedCategoryList.fold<double>(
+      0,
+      (sum, entry) => sum + entry.value,
+    );
 
-    rankingList.sort((a, b) => b.value.compareTo(a.value));
+    final rankingList = sortedCategoryList;
 
     final income = widget.expenses
         .where(
@@ -160,27 +187,24 @@ class _GraphPageState extends State<GraphPage> {
     // ========================================
     // 集計結果を一覧表示
     // ========================================
-    List<PieChartSectionData> sections = categoryTotals.entries
-        .toList() // MapをListに変換
-        .asMap() // インデックスを付与
-        .entries // インデックスとデータのペアに変換
-        .map((entry) {
-          // インデックスとデータを取得
-          int index = entry.key; // データを取得
-          var data = entry.value; // データを取得
+    List<PieChartSectionData> sections = sortedCategoryList.asMap().entries.map(
+      (entry) {
+        // インデックスとデータを取得
+        int index = entry.key; // データを取得
+        var data = entry.value; // データを取得
 
-          // グラフの割合計算
-          double percent = total == 0 ? 0 : data.value / total * 100;
+        // グラフの割合計算
+        double percent = total == 0 ? 0 : data.value / total * 100;
 
-          // グラフのセクションデータを作成
-          return PieChartSectionData(
-            value: data.value.toDouble(), // 金額をグラフの値に設定
-            title: "${percent.toStringAsFixed(0)}%", // 割合をタイトルに表示
-            radius: 80, // セクションの半径
-            color: colors[index % colors.length], // 色を設定（色の数が足りない場合はループ）
-          );
-        })
-        .toList(); // Listに変換
+        // グラフのセクションデータを作成
+        return PieChartSectionData(
+          value: data.value.toDouble(), // 金額をグラフの値に設定
+          title: "${percent.toStringAsFixed(0)}%", // 割合をタイトルに表示
+          radius: 80, // セクションの半径
+          color: colors[index % colors.length], // 色を設定（色の数が足りない場合はループ）
+        );
+      },
+    ).toList(); // Listに変換
 
     // ========================================
 
@@ -194,17 +218,18 @@ class _GraphPageState extends State<GraphPage> {
         // グラフと一覧を縦に配置
         children: [
           // タブ
-          SegmentedButton<bool>(
+          SegmentedButton<GraphMode>(
             segments: const [
-              ButtonSegment(value: false, label: Text("支出")),
-              ButtonSegment(value: true, label: Text("収入")),
+              ButtonSegment(value: GraphMode.expense, label: Text("支出")),
+              ButtonSegment(value: GraphMode.income, label: Text("収入")),
+              ButtonSegment(value: GraphMode.savings, label: Text("貯金額")),
             ],
 
-            selected: {showIncome},
+            selected: {graphMode},
 
             onSelectionChanged: (value) {
               setState(() {
-                showIncome = value.first;
+                graphMode = value.first;
               });
             },
           ),
@@ -265,145 +290,162 @@ class _GraphPageState extends State<GraphPage> {
 
           SummaryCard(income: income, expense: expense, balance: balance),
 
-          // タイトルとグラフの間の余白
-          const SizedBox(height: 5),
+          if (isSavingsMode) ...[
+            const SizedBox(height: 16),
 
-          Text(
-            showIncome ? "カテゴリ別収入" : "カテゴリ別支出",
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
+            Text(
+              "${selectedMonth.year}年 貯金額推移",
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
 
-          // グラフ描画
-          SizedBox(
-            height: 260,
-            child: total == 0
-                ? const Center(child: Text("この月のデータはありません"))
-                : PieChart(
-                    PieChartData(
-                      startDegreeOffset: -90,
-                      sections: sections,
-                      centerSpaceRadius: 50,
+            const SizedBox(height: 8),
 
-                      pieTouchData: PieTouchData(
-                        touchCallback: (event, response) {
-                          if (response == null ||
-                              response.touchedSection == null) {
-                            return;
-                          }
+            SavingsBalanceChart(
+              expenses: widget.expenses,
+              year: selectedMonth.year,
+              initialSavings: initialSavings,
+            ),
+          ] else ...[
+            const SizedBox(height: 5),
 
-                          final touchedIndex =
-                              response.touchedSection!.touchedSectionIndex;
+            Text(
+              showIncome ? "カテゴリ別収入" : "カテゴリ別支出",
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
 
-                          if (touchedIndex < 0 ||
-                              touchedIndex >= categoryList.length) {
-                            return;
-                          }
+            SizedBox(
+              height: 260,
+              child: total == 0
+                  ? const Center(child: Text("この月のデータはありません"))
+                  : PieChart(
+                      PieChartData(
+                        startDegreeOffset: -90,
+                        sections: sections,
+                        centerSpaceRadius: 50,
 
-                          if (event is! FlTapUpEvent) {
-                            return;
-                          }
+                        pieTouchData: PieTouchData(
+                          touchCallback: (event, response) {
+                            if (response == null ||
+                                response.touchedSection == null) {
+                              return;
+                            }
 
-                          final category = categoryList[touchedIndex].key;
+                            final touchedIndex =
+                                response.touchedSection!.touchedSectionIndex;
 
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => CategoryDetailPage(
-                                category: category,
-                                expenses: widget.expenses,
-                                onSave: widget.onSave,
+                            if (touchedIndex < 0 ||
+                                touchedIndex >= sortedCategoryList.length) {
+                              return;
+                            }
+
+                            if (event is! FlTapUpEvent) {
+                              return;
+                            }
+
+                            final category =
+                                sortedCategoryList[touchedIndex].key;
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CategoryDetailPage(
+                                  category: category,
+                                  expenses: widget.expenses,
+                                  onSave: widget.onSave,
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ),
-          ),
+            ),
 
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
 
-          Text(
-            "${selectedMonth.year}年 月別収支推移",
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-
-          MonthlyBalanceChart(
-            expenses: widget.expenses,
-            year: selectedMonth.year,
-          ),
-
-          const SizedBox(height: 8),
-
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              showIncome ? "カテゴリ収入ランキング" : "カテゴリ支出ランキング",
+            Text(
+              "${selectedMonth.year}年 月別収支推移",
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-          ),
 
-          const SizedBox(height: 8),
+            MonthlyBalanceChart(
+              expenses: widget.expenses,
+              year: selectedMonth.year,
+            ),
 
-          // カテゴリー一覧表示
-          // カテゴリランキング
-          SizedBox(
-            height: 420,
-            child: total == 0
-                ? const SizedBox()
-                : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: rankingList.length,
-                    itemBuilder: (context, index) {
-                      final data = rankingList[index];
+            const SizedBox(height: 8),
 
-                      double percent = total == 0
-                          ? 0
-                          : data.value / total * 100;
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                showIncome ? "カテゴリ収入ランキング" : "カテゴリ支出ランキング",
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
 
-                      return ListTile(
-                        leading: SizedBox(
-                          width: 40,
-                          child: Center(
-                            child: Text(
-                              index == 0
-                                  ? "🥇"
-                                  : index == 1
-                                  ? "🥈"
-                                  : index == 2
-                                  ? "🥉"
-                                  : "${index + 1}",
-                              style: const TextStyle(fontSize: 28),
-                            ),
-                          ),
-                        ),
+            const SizedBox(height: 8),
 
-                        title: Text(CategoryHelper.displayName(data.key)),
+            SizedBox(
+              height: 420,
+              child: total == 0
+                  ? const SizedBox()
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: rankingList.length,
+                      itemBuilder: (context, index) {
+                        final data = rankingList[index];
 
-                        subtitle: Text("${percent.toStringAsFixed(1)}%"),
+                        double percent = total == 0
+                            ? 0
+                            : data.value / total * 100;
 
-                        trailing: Text(
-                          FormatHelper.yen(data.value),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => CategoryDetailPage(
-                                category: data.key,
-                                expenses: widget.expenses,
-                                onSave: widget.onSave,
+                        return ListTile(
+                          leading: SizedBox(
+                            width: 40,
+                            child: Center(
+                              child: Text(
+                                index == 0
+                                    ? "🥇"
+                                    : index == 1
+                                    ? "🥈"
+                                    : index == 2
+                                    ? "🥉"
+                                    : "${index + 1}",
+                                style: const TextStyle(fontSize: 28),
                               ),
                             ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-          ),
+                          ),
+
+                          title: Text(CategoryHelper.displayName(data.key)),
+
+                          subtitle: Text("${percent.toStringAsFixed(1)}%"),
+
+                          trailing: Text(
+                            FormatHelper.yen(data.value),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CategoryDetailPage(
+                                  category: data.key,
+                                  expenses: widget.expenses,
+                                  onSave: widget.onSave,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
         ],
       ),
     );

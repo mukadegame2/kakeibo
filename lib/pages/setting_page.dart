@@ -7,6 +7,8 @@ import '../services/csv_import_service.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/backup_service.dart';
 import '../services/category_helper.dart';
+import '../services/savings_service.dart';
+import '../utils/format_helper.dart';
 
 // ========================================
 // 設定画面
@@ -39,6 +41,11 @@ class _SettingPageState extends State<SettingPage> {
 
   final TextEditingController categoryController = TextEditingController();
 
+  final TextEditingController initialSavingsController =
+      TextEditingController();
+
+  int initialSavings = 0;
+
   final TextEditingController childCategoryController = TextEditingController();
 
   String? selectedParentCategory;
@@ -47,12 +54,14 @@ class _SettingPageState extends State<SettingPage> {
   void initState() {
     super.initState();
     loadCategories();
+    _loadInitialSavings();
   }
 
   @override
   void dispose() {
     categoryController.dispose();
     childCategoryController.dispose();
+    initialSavingsController.dispose();
 
     super.dispose();
   }
@@ -68,6 +77,40 @@ class _SettingPageState extends State<SettingPage> {
       _incomeCategories = incomeCategories;
       _syncSelectedParentCategory();
     });
+  }
+
+  Future<void> _loadInitialSavings() async {
+    final value = await SavingsService.loadInitialSavings();
+
+    if (!mounted) return;
+
+    setState(() {
+      initialSavings = value;
+      initialSavingsController.text = value.toString();
+    });
+  }
+
+  Future<void> _saveInitialSavings() async {
+    final amount = int.tryParse(initialSavingsController.text.trim());
+
+    if (amount == null || amount < 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("初期貯金額は0以上の数字で入力してください")));
+      return;
+    }
+
+    await SavingsService.saveInitialSavings(amount);
+
+    if (!mounted) return;
+
+    setState(() {
+      initialSavings = amount;
+    });
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("初期貯金額を保存しました")));
   }
 
   void _syncSelectedParentCategory() {
@@ -412,6 +455,36 @@ class _SettingPageState extends State<SettingPage> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 16),
       children: [
+        _buildSectionCard(
+          title: "貯金設定",
+          children: [
+            TextField(
+              controller: initialSavingsController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "初期貯金額",
+                prefixText: "¥ ",
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              "現在の設定：${FormatHelper.yen(initialSavings)}",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 8),
+
+            ElevatedButton.icon(
+              onPressed: _saveInitialSavings,
+              icon: const Icon(Icons.savings),
+              label: const Text("初期貯金額を保存"),
+            ),
+          ],
+        ),
+
         _buildSectionCard(
           title: "カテゴリ種別",
           children: [

@@ -9,6 +9,8 @@ import '../services/category_service.dart';
 import '../widgets/expense_edit_dialog.dart';
 import '../utils/format_helper.dart';
 
+enum SearchPeriod { selectedMonth, all, lastYear, custom }
+
 // ========================================
 // カレンダー画面
 // 日付ごとの収支確認を行う画面
@@ -37,6 +39,11 @@ class _CalendarPageState extends State<CalendarPage> {
   DateTime selectedMonth = DateTime.now();
 
   String searchText = "";
+
+  SearchPeriod searchPeriod = SearchPeriod.selectedMonth;
+
+  late DateTime customStartDate;
+  late DateTime customEndDate;
 
   // 選択日の保持
   DateTime? selectedDay;
@@ -116,6 +123,94 @@ class _CalendarPageState extends State<CalendarPage> {
           expense.date.month == day.month &&
           expense.date.day == day.day;
     }).toList();
+  }
+
+  List<Expense> _getExpensesForSearchPeriod() {
+    final now = _dateOnly(DateTime.now());
+
+    switch (searchPeriod) {
+      case SearchPeriod.selectedMonth:
+        return _getExpensesForMonth();
+
+      case SearchPeriod.all:
+        return widget.expenses;
+
+      case SearchPeriod.lastYear:
+        final startDate = DateTime(now.year - 1, now.month, now.day);
+
+        return widget.expenses.where((expense) {
+          final expenseDate = _dateOnly(expense.date);
+
+          return !expenseDate.isBefore(startDate) && !expenseDate.isAfter(now);
+        }).toList();
+
+      case SearchPeriod.custom:
+        final startDate = _dateOnly(customStartDate);
+        final endDate = _dateOnly(customEndDate);
+
+        return widget.expenses.where((expense) {
+          final expenseDate = _dateOnly(expense.date);
+
+          return !expenseDate.isBefore(startDate) &&
+              !expenseDate.isAfter(endDate);
+        }).toList();
+    }
+  }
+
+  Future<void> _pickCustomStartDate() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      locale: const Locale('ja', 'JP'),
+      initialDate: customStartDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (pickedDate == null) {
+      return;
+    }
+
+    setState(() {
+      customStartDate = pickedDate;
+
+      if (customEndDate.isBefore(customStartDate)) {
+        customEndDate = customStartDate;
+      }
+
+      searchPeriod = SearchPeriod.custom;
+    });
+  }
+
+  Future<void> _pickCustomEndDate() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      locale: const Locale('ja', 'JP'),
+      initialDate: customEndDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (pickedDate == null) {
+      return;
+    }
+
+    setState(() {
+      customEndDate = pickedDate;
+
+      if (customStartDate.isAfter(customEndDate)) {
+        customStartDate = customEndDate;
+      }
+
+      searchPeriod = SearchPeriod.custom;
+    });
+  }
+
+  DateTime _dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  String _formatDate(DateTime date) {
+    return "${date.year}/${date.month}/${date.day}";
   }
 
   Widget _buildDayCell(
@@ -260,11 +355,98 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
+  Widget _buildSearchPeriodSelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              ChoiceChip(
+                label: const Text("選択月"),
+                selected: searchPeriod == SearchPeriod.selectedMonth,
+                onSelected: (_) {
+                  setState(() {
+                    searchPeriod = SearchPeriod.selectedMonth;
+                  });
+                },
+              ),
+
+              ChoiceChip(
+                label: const Text("全期間"),
+                selected: searchPeriod == SearchPeriod.all,
+                onSelected: (_) {
+                  setState(() {
+                    searchPeriod = SearchPeriod.all;
+                  });
+                },
+              ),
+
+              ChoiceChip(
+                label: const Text("直近1年"),
+                selected: searchPeriod == SearchPeriod.lastYear,
+                onSelected: (_) {
+                  setState(() {
+                    searchPeriod = SearchPeriod.lastYear;
+                  });
+                },
+              ),
+
+              ChoiceChip(
+                label: const Text("任意期間"),
+                selected: searchPeriod == SearchPeriod.custom,
+                onSelected: (_) {
+                  setState(() {
+                    searchPeriod = SearchPeriod.custom;
+                  });
+                },
+              ),
+            ],
+          ),
+
+          if (searchPeriod == SearchPeriod.custom) ...[
+            const SizedBox(height: 8),
+
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickCustomStartDate,
+                    icon: const Icon(Icons.date_range),
+                    label: Text("開始：${_formatDate(customStartDate)}"),
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickCustomEndDate,
+                    icon: const Icon(Icons.date_range),
+                    label: Text("終了：${_formatDate(customEndDate)}"),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
 
-    selectedDay = DateTime.now();
+    final now = DateTime.now();
+
+    selectedDay = now;
+    customStartDate = DateTime(now.year, now.month, 1);
+    customEndDate = now;
+
     _loadCategories();
   }
 
@@ -293,13 +475,22 @@ class _CalendarPageState extends State<CalendarPage> {
         )
         .fold(0, (sum, e) => sum + e.amount);
 
-    final displayExpenses = searchText.isEmpty
-        ? (selectedDay == null ? <Expense>[] : _getExpensesForDay(selectedDay!))
-        : _getExpensesForMonth().where((expense) {
-            return expense.memo.contains(searchText) ||
-                expense.category.contains(searchText) ||
-                expense.amount.toString().contains(searchText);
-          }).toList();
+    final displayExpenses =
+        searchText.isEmpty
+              ? (selectedDay == null
+                    ? <Expense>[]
+                    : _getExpensesForDay(selectedDay!))
+              : _getExpensesForSearchPeriod().where((expense) {
+                  final displayCategory = CategoryHelper.displayName(
+                    expense.category,
+                  );
+
+                  return expense.memo.contains(searchText) ||
+                      expense.category.contains(searchText) ||
+                      displayCategory.contains(searchText) ||
+                      expense.amount.toString().contains(searchText);
+                }).toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
 
     return Column(
       children: [
@@ -350,6 +541,10 @@ class _CalendarPageState extends State<CalendarPage> {
             },
           ),
         ),
+
+        _buildSearchPeriodSelector(),
+
+        const SizedBox(height: 8),
 
         SummaryCard(
           income: income,
