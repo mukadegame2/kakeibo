@@ -9,12 +9,14 @@ import '../utils/format_helper.dart';
 
 class CategoryDetailPage extends StatefulWidget {
   final String category;
+  final bool isIncomeFilter;
   final List<Expense> expenses;
   final Future<void> Function() onSave;
 
   const CategoryDetailPage({
     super.key,
     required this.category,
+    required this.isIncomeFilter,
     required this.expenses,
     required this.onSave,
   });
@@ -42,6 +44,10 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
   }
 
   bool _isTargetCategory(Expense expense) {
+    if (expense.isIncome != widget.isIncomeFilter) {
+      return false;
+    }
+
     if (CategoryHelper.isChildCategory(widget.category)) {
       return expense.category == widget.category;
     }
@@ -235,7 +241,11 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
     final chartMaxY = maxMonthlyTotal == 0 ? 1000.0 : maxMonthlyTotal * 1.25;
 
     return Scaffold(
-      appBar: AppBar(title: Text(CategoryHelper.displayName(widget.category))),
+      appBar: AppBar(
+        title: Text(
+          "${widget.isIncomeFilter ? "収入" : "支出"}：${CategoryHelper.displayName(widget.category)}",
+        ),
+      ),
 
       body: Padding(
         padding: const EdgeInsets.all(16),

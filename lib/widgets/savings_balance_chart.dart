@@ -139,128 +139,149 @@ class SavingsBalanceChart extends StatelessWidget {
 
     return Column(
       children: [
-        SizedBox(
-          width: 700,
-          height: 240,
-          child: BarChart(
-            BarChartData(
-              minY: chartMinY,
-              maxY: chartMaxY,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final availableWidth = constraints.hasBoundedWidth
+                ? constraints.maxWidth
+                : 700.0;
 
-              extraLinesData: ExtraLinesData(
-                horizontalLines: [
-                  HorizontalLine(y: 0, color: Colors.black54, strokeWidth: 1.5),
-                ],
-              ),
+            final chartWidth = availableWidth > 700 ? 700.0 : availableWidth;
 
-              gridData: const FlGridData(show: true),
+            return Center(
+              child: SizedBox(
+                width: chartWidth,
+                height: 240,
+                child: BarChart(
+                  BarChartData(
+                    minY: chartMinY,
+                    maxY: chartMaxY,
 
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: Colors.grey, width: 1),
-              ),
-
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 76,
-                    interval: yInterval,
-                    getTitlesWidget: (value, meta) {
-                      final roundedValue = value.round();
-
-                      if (roundedValue < chartMinY ||
-                          roundedValue > chartMaxY) {
-                        return const SizedBox();
-                      }
-
-                      final interval = yInterval.round();
-
-                      if (interval > 0 && roundedValue % interval != 0) {
-                        return const SizedBox();
-                      }
-
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: Text(
-                          _formatAxisYen(value),
-                          style: const TextStyle(fontSize: 10),
-                          textAlign: TextAlign.right,
+                    extraLinesData: ExtraLinesData(
+                      horizontalLines: [
+                        HorizontalLine(
+                          y: 0,
+                          color: Colors.black54,
+                          strokeWidth: 1.5,
                         ),
-                      );
-                    },
-                  ),
-                ),
-
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      final month = value.toInt();
-
-                      if (month < 1 || month > 12) {
-                        return const SizedBox();
-                      }
-
-                      return Text(
-                        '$month月',
-                        style: const TextStyle(fontSize: 10),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-              barTouchData: BarTouchData(
-                enabled: true,
-                touchTooltipData: BarTouchTooltipData(
-                  fitInsideHorizontally: true,
-                  fitInsideVertically: true,
-                  tooltipMargin: 8,
-                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                    final month = group.x;
-
-                    if (!savingsByMonth.containsKey(month)) {
-                      return null;
-                    }
-
-                    return BarTooltipItem(
-                      FormatHelper.signedYen(rod.toY.toInt()),
-                      const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              barGroups: savingsByMonth.entries.map((entry) {
-                final month = entry.key;
-                final savings = entry.value;
-
-                return BarChartGroupData(
-                  x: month,
-                  barRods: [
-                    BarChartRodData(
-                      toY: savings.toDouble(),
-                      width: 18,
-                      color: savings >= 0 ? Colors.blue : Colors.red,
-                      borderRadius: BorderRadius.circular(4),
+                      ],
                     ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
+
+                    gridData: const FlGridData(show: true),
+
+                    borderData: FlBorderData(
+                      show: true,
+                      border: Border.all(color: Colors.grey, width: 1),
+                    ),
+
+                    titlesData: FlTitlesData(
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 76,
+                          interval: yInterval,
+                          getTitlesWidget: (value, meta) {
+                            final roundedValue = value.round();
+
+                            if (roundedValue < chartMinY ||
+                                roundedValue > chartMaxY) {
+                              return const SizedBox();
+                            }
+
+                            final interval = yInterval.round();
+
+                            if (interval > 0 && roundedValue % interval != 0) {
+                              return const SizedBox();
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: Text(
+                                _formatAxisYen(value),
+                                style: const TextStyle(fontSize: 10),
+                                textAlign: TextAlign.right,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            final month = value.toInt();
+
+                            if (month < 1 || month > 12) {
+                              return const SizedBox();
+                            }
+
+                            return Text(
+                              '$month月',
+                              style: const TextStyle(fontSize: 10),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    barTouchData: BarTouchData(
+                      enabled: true,
+                      touchTooltipData: BarTouchTooltipData(
+                        fitInsideHorizontally: true,
+                        fitInsideVertically: true,
+                        tooltipMargin: 8,
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          final month = group.x;
+
+                          if (!savingsByMonth.containsKey(month)) {
+                            return null;
+                          }
+
+                          return BarTooltipItem(
+                            FormatHelper.signedYen(rod.toY.toInt()),
+                            const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    barGroups: List.generate(12, (index) {
+                      final month = index + 1;
+                      final hasValue = savingsByMonth.containsKey(month);
+                      final savings = savingsByMonth[month] ?? 0;
+
+                      return BarChartGroupData(
+                        x: month,
+                        barRods: [
+                          BarChartRodData(
+                            toY: hasValue ? savings.toDouble() : 0,
+                            width: 18,
+                            color: !hasValue
+                                ? Colors.transparent
+                                : savings >= 0
+                                ? Colors.blue
+                                : Colors.red,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
 
         const SizedBox(height: 8),
@@ -273,45 +294,58 @@ class SavingsBalanceChart extends StatelessWidget {
         if (displayMonths.isNotEmpty) ...[
           const SizedBox(height: 12),
 
-          SizedBox(
-            width: 700,
-            child: Card(
-              child: Column(
-                children: displayMonths.map((month) {
-                  final savings = savingsByMonth[month] ?? 0;
-                  final monthlyBalance = monthlyBalances[month] ?? 0;
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final availableWidth = constraints.hasBoundedWidth
+                  ? constraints.maxWidth
+                  : 700.0;
 
-                  return Column(
-                    children: [
-                      ListTile(
-                        title: Text(
-                          "$month月",
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+              final listWidth = availableWidth > 700 ? 700.0 : availableWidth;
 
-                        subtitle: Text(
-                          "月間収支：${FormatHelper.signedYen(monthlyBalance)}",
-                        ),
+              return Center(
+                child: SizedBox(
+                  width: listWidth,
+                  child: Card(
+                    child: Column(
+                      children: displayMonths.map((month) {
+                        final savings = savingsByMonth[month] ?? 0;
+                        final monthlyBalance = monthlyBalances[month] ?? 0;
 
-                        trailing: Text(
-                          _formatBalanceYen(savings),
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: savings < 0 ? Colors.red : Colors.blue,
-                          ),
-                        ),
-                      ),
+                        return Column(
+                          children: [
+                            ListTile(
+                              title: Text(
+                                "$month月",
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
 
-                      if (month != displayMonths.last) const Divider(height: 1),
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
+                              subtitle: Text(
+                                "月間収支：${FormatHelper.signedYen(monthlyBalance)}",
+                              ),
+
+                              trailing: Text(
+                                _formatBalanceYen(savings),
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: savings < 0 ? Colors.red : Colors.blue,
+                                ),
+                              ),
+                            ),
+
+                            if (month != displayMonths.last)
+                              const Divider(height: 1),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ],

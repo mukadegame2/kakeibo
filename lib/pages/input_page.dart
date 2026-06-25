@@ -301,7 +301,6 @@ class _InputPageState extends State<InputPage> {
             ),
             trailing: const Icon(Icons.edit),
             onTap: () async {
-              // 日付選択ダイアログ表示
               final pickedDate = await showDatePicker(
                 context: context,
                 locale: const Locale('ja', 'JP'),
@@ -310,11 +309,17 @@ class _InputPageState extends State<InputPage> {
                 lastDate: DateTime(2100),
               );
 
-              if (pickedDate != null) {
-                setState(() {
-                  _selectedDate = pickedDate;
-                });
+              if (pickedDate == null) {
+                return;
               }
+
+              if (!mounted) {
+                return;
+              }
+
+              setState(() {
+                _selectedDate = pickedDate;
+              });
             },
           ),
 
@@ -368,18 +373,18 @@ class _InputPageState extends State<InputPage> {
 
               // 永続保存
               await widget.onSave();
+              if (!mounted) {
+                return;
+              }
 
               // 日付順でソート
               widget.expenses.sort((a, b) => b.date.compareTo(a.date));
-
-              // 画面更新
-              setState(() {});
 
               // 入力欄クリア
               _amountController.clear();
               _memoController.clear();
 
-              // 日付を今日にリセット
+              // 画面更新
               setState(() {
                 _selectedDate = DateTime.now();
               });
@@ -428,11 +433,30 @@ class _InputPageState extends State<InputPage> {
                     IconButton(
                       icon: const Icon(Icons.delete),
                       onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+
                         setState(() {
                           widget.expenses.remove(expense);
                         });
 
-                        await widget.onSave();
+                        try {
+                          await widget.onSave();
+                        } catch (e) {
+                          if (!mounted) {
+                            return;
+                          }
+
+                          setState(() {
+                            widget.expenses.add(expense);
+                            widget.expenses.sort(
+                              (a, b) => b.date.compareTo(a.date),
+                            );
+                          });
+
+                          messenger.showSnackBar(
+                            SnackBar(content: Text("削除の保存に失敗しました\n$e")),
+                          );
+                        }
                       },
                     ),
                   ],

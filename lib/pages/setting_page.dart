@@ -319,39 +319,73 @@ class _SettingPageState extends State<SettingPage> {
       return;
     }
 
+    final messenger = ScaffoldMessenger.of(context);
+
     try {
       final csvText = await File(path).readAsString();
-      if (!mounted) return;
 
-      final importedExpenses = CsvImportService.importCsv(csvText);
+      if (!mounted) {
+        return;
+      }
+
+      final importResult = CsvImportService.importCsv(csvText);
+      final importedExpenses = importResult.expenses;
+
+      if (importedExpenses.isEmpty) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              isBackupRestore
+                  ? "復元できるデータがありませんでした\n"
+                        "スキップ：${importResult.skippedRows}件"
+                  : "取り込めるデータがありませんでした\n"
+                        "スキップ：${importResult.skippedRows}件",
+            ),
+          ),
+        );
+        return;
+      }
 
       importedExpenses.sort((a, b) => b.date.compareTo(a.date));
 
       await _syncCategoriesFromExpenses(importedExpenses);
-      if (!mounted) return;
+
+      if (!mounted) {
+        return;
+      }
 
       widget.expenses.clear();
       widget.expenses.addAll(importedExpenses);
+
       await widget.onSave();
-      if (!mounted) return;
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _syncSelectedParentCategory();
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
             isBackupRestore
-                ? "${importedExpenses.length}件のデータを復元しました"
-                : "${importedExpenses.length}件のデータを読み込みました",
+                ? "バックアップを復元しました\n"
+                      "取込：${importedExpenses.length}件"
+                      "${importResult.skippedRows > 0 ? " / スキップ：${importResult.skippedRows}件" : ""}"
+                : "CSVをインポートしました\n"
+                      "取込：${importedExpenses.length}件"
+                      "${importResult.skippedRows > 0 ? " / スキップ：${importResult.skippedRows}件" : ""}",
           ),
         ),
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
             isBackupRestore
@@ -484,7 +518,8 @@ class _SettingPageState extends State<SettingPage> {
                 for (int i = 0; i < widget.expenses.length; i++) {
                   final expense = widget.expenses[i];
 
-                  if (expense.category == oldCategory) {
+                  if (expense.isIncome == _isIncomeCategoryMode &&
+                      expense.category == oldCategory) {
                     widget.expenses[i] = expense.copyWith(
                       category: newCategory,
                     );
@@ -869,7 +904,8 @@ class _SettingPageState extends State<SettingPage> {
                         for (int i = 0; i < widget.expenses.length; i++) {
                           final expense = widget.expenses[i];
 
-                          if (expense.category == category) {
+                          if (expense.isIncome == _isIncomeCategoryMode &&
+                              expense.category == category) {
                             widget.expenses[i] = expense.copyWith(
                               category: "その他",
                             );
@@ -944,13 +980,21 @@ class _SettingPageState extends State<SettingPage> {
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
 
-                final path = await CsvService.saveCsv(widget.expenses);
+                try {
+                  final path = await CsvService.saveCsv(widget.expenses);
 
-                if (!mounted) return;
+                  if (!mounted) return;
 
-                messenger.showSnackBar(
-                  SnackBar(content: Text("CSV保存完了\n$path")),
-                );
+                  messenger.showSnackBar(
+                    SnackBar(content: Text("CSV保存完了\n$path")),
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+
+                  messenger.showSnackBar(
+                    SnackBar(content: Text("CSV保存に失敗しました\n$e")),
+                  );
+                }
               },
               icon: const Icon(Icons.file_download),
               label: const Text("CSV保存"),

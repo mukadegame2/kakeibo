@@ -23,18 +23,39 @@ class CsvService {
     return const ListToCsvConverter().convert(rows);
   }
 
+  static String _twoDigits(int value) {
+    return value.toString().padLeft(2, '0');
+  }
+
   static Future<String> saveCsv(List<Expense> expenses) async {
     final csv = createCsv(expenses);
 
-    final directory = Directory(
-      '${Platform.environment['USERPROFILE']}\\Downloads',
-    );
+    final userProfile = Platform.environment['USERPROFILE'];
 
-    final fileName = "kakeibo_${DateTime.now().millisecondsSinceEpoch}.csv";
+    if (userProfile == null || userProfile.isEmpty) {
+      throw Exception("ユーザーフォルダを取得できませんでした");
+    }
 
-    final file = File("${directory.path}/$fileName");
+    final directory = Directory('$userProfile\\Downloads');
 
-    await file.writeAsString(csv);
+    if (!await directory.exists()) {
+      throw Exception("Downloadsフォルダが見つかりませんでした");
+    }
+
+    final now = DateTime.now();
+
+    final timestamp =
+        "${now.year}"
+        "${_twoDigits(now.month)}"
+        "${_twoDigits(now.day)}_"
+        "${_twoDigits(now.hour)}"
+        "${_twoDigits(now.minute)}"
+        "${_twoDigits(now.second)}";
+
+    final file = File('${directory.path}\\kakeibo_$timestamp.csv');
+
+    // Excelで開いたときの文字化け対策としてBOMを付ける
+    await file.writeAsString('\ufeff$csv');
 
     return file.path;
   }

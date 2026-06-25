@@ -231,27 +231,40 @@ class _GraphPageState extends State<GraphPage> {
           ),
 
           // 月切替のUI
-          MonthSelector(
-            selectedMonth: selectedMonth,
+          if (!isSavingsMode)
+            MonthSelector(
+              selectedMonth: selectedMonth,
+              onPrevious: () {
+                setState(() {
+                  selectedMonth = DateTime(
+                    selectedMonth.year,
+                    selectedMonth.month - 1,
+                  );
+                });
+              },
+              onNext: () {
+                setState(() {
+                  selectedMonth = DateTime(
+                    selectedMonth.year,
+                    selectedMonth.month + 1,
+                  );
+                });
+              },
+            ),
 
-            onPrevious: () {
-              setState(() {
-                selectedMonth = DateTime(
-                  selectedMonth.year,
-                  selectedMonth.month - 1,
-                );
-              });
-            },
-
-            onNext: () {
-              setState(() {
-                selectedMonth = DateTime(
-                  selectedMonth.year,
-                  selectedMonth.month + 1,
-                );
-              });
-            },
-          ),
+          if (isSavingsMode) ...[
+            const SizedBox(height: 8),
+            Text(
+              "${selectedMonth.year}年の貯金額",
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              "今日時点までの累計貯金額を表示しています。未来月は含めません。",
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           const SizedBox(height: 8),
 
@@ -284,15 +297,8 @@ class _GraphPageState extends State<GraphPage> {
           // 月切替とグラフの間の余白
           const SizedBox(height: 20),
 
-          SummaryCard(income: income, expense: expense, balance: balance),
-
-          if (isSavingsMode) ...[
-            const SizedBox(height: 4),
-            const Text(
-              "表示月の収支をもとに、年内の累計貯金額を表示しています",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
+          if (!isSavingsMode)
+            SummaryCard(income: income, expense: expense, balance: balance),
 
           if (isSavingsMode) ...[
             const SizedBox(height: 16),
@@ -354,6 +360,7 @@ class _GraphPageState extends State<GraphPage> {
                               MaterialPageRoute(
                                 builder: (_) => CategoryDetailPage(
                                   category: category,
+                                  isIncomeFilter: showIncome,
                                   expenses: widget.expenses,
                                   onSave: widget.onSave,
                                 ),
@@ -439,6 +446,7 @@ class _GraphPageState extends State<GraphPage> {
                               MaterialPageRoute(
                                 builder: (_) => CategoryDetailPage(
                                   category: data.key,
+                                  isIncomeFilter: showIncome,
                                   expenses: widget.expenses,
                                   onSave: widget.onSave,
                                 ),

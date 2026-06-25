@@ -80,118 +80,136 @@ class MonthlyBalanceChart extends StatelessWidget {
 
     final chartMinY = -chartMaxY;
 
-    return SizedBox(
-      width: 700,
-      height: 240,
-      child: BarChart(
-        BarChartData(
-          minY: chartMinY,
-          maxY: chartMaxY,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final chartWidth = constraints.maxWidth > 700
+            ? 700.0
+            : constraints.maxWidth;
 
-          extraLinesData: ExtraLinesData(
-            horizontalLines: [
-              HorizontalLine(y: 0, color: Colors.black54, strokeWidth: 1.2),
-            ],
-          ),
+        return Center(
+          child: SizedBox(
+            width: chartWidth,
+            height: 240,
+            child: BarChart(
+              BarChartData(
+                minY: chartMinY,
+                maxY: chartMaxY,
 
-          gridData: const FlGridData(show: true),
-
-          borderData: FlBorderData(
-            show: true,
-            border: Border.all(color: Colors.grey, width: 1),
-          ),
-
-          titlesData: FlTitlesData(
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 76,
-                interval: yInterval,
-                getTitlesWidget: (value, meta) {
-                  final roundedValue = value.round();
-
-                  if (roundedValue < chartMinY || roundedValue > chartMaxY) {
-                    return const SizedBox();
-                  }
-
-                  final interval = yInterval.round();
-
-                  if (interval > 0 && roundedValue % interval != 0) {
-                    return const SizedBox();
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: Text(
-                      _formatAxisYen(value),
-                      style: const TextStyle(fontSize: 10),
-                      textAlign: TextAlign.right,
+                extraLinesData: ExtraLinesData(
+                  horizontalLines: [
+                    HorizontalLine(
+                      y: 0,
+                      color: Colors.black54,
+                      strokeWidth: 1.2,
                     ),
-                  );
-                },
-              ),
-            ),
-
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  final month = value.toInt();
-
-                  if (month < 1 || month > 12) {
-                    return const SizedBox();
-                  }
-
-                  return Text('$month月', style: const TextStyle(fontSize: 10));
-                },
-              ),
-            ),
-          ),
-
-          barTouchData: BarTouchData(
-            enabled: true,
-            touchTooltipData: BarTouchTooltipData(
-              fitInsideHorizontally: true,
-              fitInsideVertically: true,
-              tooltipMargin: 8,
-              getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                return BarTooltipItem(
-                  FormatHelper.signedYen(rod.toY.toInt()),
-                  const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              },
-            ),
-          ),
-
-          barGroups: monthlyBalances.entries.map((entry) {
-            final month = entry.key;
-            final balance = entry.value;
-
-            return BarChartGroupData(
-              x: month,
-              barRods: [
-                BarChartRodData(
-                  toY: balance.toDouble(),
-                  width: 18,
-                  color: balance >= 0 ? Colors.blue : Colors.red,
-                  borderRadius: BorderRadius.circular(4),
+                  ],
                 ),
-              ],
-            );
-          }).toList(),
-        ),
-      ),
+
+                gridData: const FlGridData(show: true),
+
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(color: Colors.grey, width: 1),
+                ),
+
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 76,
+                      interval: yInterval,
+                      getTitlesWidget: (value, meta) {
+                        final roundedValue = value.round();
+
+                        if (roundedValue < chartMinY ||
+                            roundedValue > chartMaxY) {
+                          return const SizedBox();
+                        }
+
+                        final interval = yInterval.round();
+
+                        if (interval > 0 && roundedValue % interval != 0) {
+                          return const SizedBox();
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: Text(
+                            _formatAxisYen(value),
+                            style: const TextStyle(fontSize: 10),
+                            textAlign: TextAlign.right,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final month = value.toInt();
+
+                        if (month < 1 || month > 12) {
+                          return const SizedBox();
+                        }
+
+                        return Text(
+                          '$month月',
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                barTouchData: BarTouchData(
+                  enabled: true,
+                  touchTooltipData: BarTouchTooltipData(
+                    fitInsideHorizontally: true,
+                    fitInsideVertically: true,
+                    tooltipMargin: 8,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      return BarTooltipItem(
+                        FormatHelper.signedYen(rod.toY.toInt()),
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                barGroups: monthlyBalances.entries.map((entry) {
+                  final month = entry.key;
+                  final balance = entry.value;
+
+                  return BarChartGroupData(
+                    x: month,
+                    barRods: [
+                      BarChartRodData(
+                        toY: balance.toDouble(),
+                        width: 18,
+                        color: balance >= 0 ? Colors.blue : Colors.red,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
