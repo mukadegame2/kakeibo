@@ -68,8 +68,8 @@ class _SettingPageState extends State<SettingPage> {
 
   Future<void> loadCategories() async {
     final expenseCategories = await CategoryService.loadExpenseCategories();
+    if (!mounted) return;
     final incomeCategories = await CategoryService.loadIncomeCategories();
-
     if (!mounted) return;
 
     setState(() {
@@ -81,7 +81,6 @@ class _SettingPageState extends State<SettingPage> {
 
   Future<void> _loadInitialSavings() async {
     final value = await SavingsService.loadInitialSavings();
-
     if (!mounted) return;
 
     setState(() {
@@ -101,7 +100,6 @@ class _SettingPageState extends State<SettingPage> {
     }
 
     await SavingsService.saveInitialSavings(amount);
-
     if (!mounted) return;
 
     setState(() {
@@ -111,6 +109,70 @@ class _SettingPageState extends State<SettingPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text("初期貯金額を保存しました")));
+  }
+
+  Future<void> _resetAllData() async {
+    final shouldReset = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("全データ初期化"),
+          content: const Text(
+            "収支データ、カテゴリ、初期貯金額をすべて初期化します。\n"
+            "この操作は元に戻せません。\n\n"
+            "実行前にバックアップを作成することをおすすめします。",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text("キャンセル"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text("初期化する"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldReset != true) {
+      return;
+    }
+
+    widget.expenses.clear();
+
+    _expenseCategories = List.from(CategoryService.defaultExpenseCategories);
+    _incomeCategories = List.from(CategoryService.defaultIncomeCategories);
+
+    await CategoryService.saveExpenseCategories(_expenseCategories);
+    await CategoryService.saveIncomeCategories(_incomeCategories);
+
+    await SavingsService.saveInitialSavings(0);
+
+    await widget.onSave();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      initialSavings = 0;
+      initialSavingsController.text = "0";
+      _syncSelectedParentCategory();
+    });
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("全データを初期化しました")));
   }
 
   void _syncSelectedParentCategory() {
@@ -132,8 +194,10 @@ class _SettingPageState extends State<SettingPage> {
   Future<void> _saveCurrentCategories() async {
     if (_isIncomeCategoryMode) {
       await CategoryService.saveIncomeCategories(_incomeCategories);
+      if (!mounted) return;
     } else {
       await CategoryService.saveExpenseCategories(_expenseCategories);
+      if (!mounted) return;
     }
   }
 
@@ -185,7 +249,10 @@ class _SettingPageState extends State<SettingPage> {
     }
 
     await CategoryService.saveExpenseCategories(_expenseCategories);
+    if (!mounted) return;
+
     await CategoryService.saveIncomeCategories(_incomeCategories);
+    if (!mounted) return;
 
     _syncSelectedParentCategory();
   }
@@ -195,6 +262,7 @@ class _SettingPageState extends State<SettingPage> {
       type: FileType.custom,
       allowedExtensions: ['csv'],
     );
+    if (!mounted) return;
 
     if (result == null) {
       return;
@@ -245,6 +313,7 @@ class _SettingPageState extends State<SettingPage> {
         );
       },
     );
+    if (!mounted) return;
 
     if (confirm != true) {
       return;
@@ -252,18 +321,18 @@ class _SettingPageState extends State<SettingPage> {
 
     try {
       final csvText = await File(path).readAsString();
+      if (!mounted) return;
 
       final importedExpenses = CsvImportService.importCsv(csvText);
 
       importedExpenses.sort((a, b) => b.date.compareTo(a.date));
 
       await _syncCategoriesFromExpenses(importedExpenses);
+      if (!mounted) return;
 
       widget.expenses.clear();
       widget.expenses.addAll(importedExpenses);
-
       await widget.onSave();
-
       if (!mounted) return;
 
       setState(() {
@@ -425,12 +494,13 @@ class _SettingPageState extends State<SettingPage> {
                 await _saveCurrentCategories();
 
                 await widget.onSave();
-
                 if (!mounted) return;
 
                 setState(() {
                   _syncSelectedParentCategory();
                 });
+
+                if (!dialogContext.mounted) return;
 
                 Navigator.pop(dialogContext);
               },
@@ -440,6 +510,7 @@ class _SettingPageState extends State<SettingPage> {
         );
       },
     );
+    if (!mounted) return;
 
     controller.dispose();
   }
@@ -455,6 +526,24 @@ class _SettingPageState extends State<SettingPage> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 16),
       children: [
+        _buildSectionCard(
+          title: "初期化",
+          children: [
+            const Text("収支データ、カテゴリ、初期貯金額をすべて初期状態に戻します。"),
+
+            const SizedBox(height: 8),
+
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: _resetAllData,
+              icon: const Icon(Icons.delete_forever),
+              label: const Text("全データを初期化"),
+            ),
+          ],
+        ),
         _buildSectionCard(
           title: "貯金設定",
           children: [
@@ -563,7 +652,6 @@ class _SettingPageState extends State<SettingPage> {
                     categories.add(category);
 
                     await _saveCurrentCategories();
-
                     if (!mounted) return;
 
                     categoryController.clear();
@@ -590,7 +678,10 @@ class _SettingPageState extends State<SettingPage> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: selectedParentCategory,
+                    key: ValueKey(
+                      'parent-$_isIncomeCategoryMode-${selectedParentCategory ?? ""}',
+                    ),
+                    initialValue: selectedParentCategory,
                     decoration: const InputDecoration(
                       labelText: "親カテゴリ",
                       border: OutlineInputBorder(),
@@ -663,7 +754,6 @@ class _SettingPageState extends State<SettingPage> {
                     categories.add(category);
 
                     await _saveCurrentCategories();
-
                     if (!mounted) return;
 
                     childCategoryController.clear();
@@ -770,6 +860,7 @@ class _SettingPageState extends State<SettingPage> {
                             );
                           },
                         );
+                        if (!mounted) return;
 
                         if (result != true) {
                           return;
@@ -788,9 +879,9 @@ class _SettingPageState extends State<SettingPage> {
                         categories.remove(category);
 
                         await _saveCurrentCategories();
+                        if (!mounted) return;
 
                         await widget.onSave();
-
                         if (!mounted) return;
 
                         setState(() {
@@ -810,18 +901,20 @@ class _SettingPageState extends State<SettingPage> {
           children: [
             ElevatedButton.icon(
               onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+
                 try {
                   final path = await BackupService.saveBackup(widget.expenses);
 
                   if (!mounted) return;
 
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     SnackBar(content: Text("バックアップを作成しました\n$path")),
                   );
                 } catch (e) {
                   if (!mounted) return;
 
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(content: Text("バックアップ作成に失敗しました")),
                   );
                 }
@@ -835,7 +928,9 @@ class _SettingPageState extends State<SettingPage> {
             ElevatedButton.icon(
               onPressed: () async {
                 await importCsvFile(isBackupRestore: true);
+                if (!mounted) return;
               },
+
               icon: const Icon(Icons.restore),
               label: const Text("バックアップ復元"),
             ),
@@ -847,13 +942,15 @@ class _SettingPageState extends State<SettingPage> {
           children: [
             OutlinedButton.icon(
               onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+
                 final path = await CsvService.saveCsv(widget.expenses);
 
                 if (!mounted) return;
 
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text("CSV保存完了\n$path")));
+                messenger.showSnackBar(
+                  SnackBar(content: Text("CSV保存完了\n$path")),
+                );
               },
               icon: const Icon(Icons.file_download),
               label: const Text("CSV保存"),
@@ -864,6 +961,7 @@ class _SettingPageState extends State<SettingPage> {
             OutlinedButton.icon(
               onPressed: () async {
                 await importCsvFile();
+                if (!mounted) return;
               },
               icon: const Icon(Icons.file_upload),
               label: const Text("CSVインポート"),
@@ -873,19 +971,6 @@ class _SettingPageState extends State<SettingPage> {
 
         const SizedBox(height: 16),
       ],
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 4),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-      ),
     );
   }
 

@@ -123,10 +123,6 @@ class _GraphPageState extends State<GraphPage> {
     for (var expense in widget.expenses) {
       if (expense.date.year != selectedMonth.year ||
           expense.date.month != selectedMonth.month) {
-        double total = categoryTotals.values.fold(
-          0,
-          (sum, value) => sum + value,
-        );
         continue;
       }
 
@@ -289,6 +285,14 @@ class _GraphPageState extends State<GraphPage> {
           const SizedBox(height: 20),
 
           SummaryCard(income: income, expense: expense, balance: balance),
+
+          if (isSavingsMode) ...[
+            const SizedBox(height: 4),
+            const Text(
+              "表示月の収支をもとに、年内の累計貯金額を表示しています",
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
 
           if (isSavingsMode) ...[
             const SizedBox(height: 16),

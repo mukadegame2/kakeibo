@@ -169,7 +169,7 @@ class _ExpenseEditDialogState extends State<_ExpenseEditDialog> {
 
             DropdownButtonFormField<String>(
               key: ValueKey(editIsIncome),
-              value: selectedCategory,
+              initialValue: selectedCategory,
               decoration: const InputDecoration(
                 labelText: 'カテゴリ',
                 border: OutlineInputBorder(),

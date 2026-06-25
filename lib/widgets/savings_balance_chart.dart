@@ -130,7 +130,7 @@ class SavingsBalanceChart extends StatelessWidget {
 
     final savingsLabel = lastDisplayMonth == 0
         ? "表示できる月がありません"
-        : "${lastDisplayMonth}月時点：${_formatBalanceYen(latestSavings)}";
+        : "$lastDisplayMonth月時点：${_formatBalanceYen(latestSavings)}";
 
     final displayMonths = List.generate(
       lastDisplayMonth,
@@ -285,7 +285,7 @@ class SavingsBalanceChart extends StatelessWidget {
                     children: [
                       ListTile(
                         title: Text(
-                          "${month}月",
+                          "$month月",
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
