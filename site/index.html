@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>おうち家計簿 | シンプルなWindows向け家計簿アプリ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <h1>おうち家計簿</h1>
+      <p>
+        収入・支出・カテゴリ・カレンダー・グラフ・貯金額を管理できる、
+        シンプルなWindows向け家計簿アプリです。
+      </p>
+
+      <a class="download-button" href="https://github.com/mukadegame2/ouchi-kakeibo-site/releases/download/v0.9.0/kakeibo_windows.zip">
+	Windows版をダウンロード
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section>
+      <h2>主な機能</h2>
+      <ul class="feature-list">
+        <li>収入・支出の登録</li>
+        <li>カテゴリ別管理</li>
+        <li>親カテゴリ・子カテゴリの設定</li>
+        <li>カレンダーでの日別確認</li>
+        <li>検索と期間指定</li>
+        <li>カテゴリ別グラフ</li>
+        <li>月別収支グラフ</li>
+        <li>貯金額推移の確認</li>
+        <li>CSV保存・CSV復元</li>
+        <li>バックアップ作成・復元</li>
+        <li>全データ初期化</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>使い方</h2>
+      <ol>
+        <li>ZIPファイルをダウンロードします。</li>
+        <li>ZIPファイルを展開します。</li>
+        <li>フォルダ内の <code>kakeibo.exe</code> をダブルクリックして起動します。</li>
+      </ol>
+
+      <p class="warning">
+        <code>kakeibo.exe</code> だけを取り出さず、
+        <code>data</code> フォルダや <code>.dll</code> ファイルも同じフォルダに置いた状態で起動してください。
+      </p>
+    </section>
+
+    <section>
+      <h2>データの保存について</h2>
+      <p>
+        入力した家計簿データは、お使いのPC内に保存されます。
+        開発者へ家計簿データが送信されることはありません。
+      </p>
+      <p>
+        データ消失に備えて、設定画面から定期的に
+        「CSV保存」または「バックアップ作成」を行ってください。
+      </p>
+    </section>
+
+    <section>
+      <h2>CSVについて</h2>
+      <p>
+        CSVはUTF-8形式で保存されます。
+        Excelで文字化けする場合は、「データ」→「テキストまたはCSVから」読み込んでください。
+      </p>
+    </section>
+
+    <section>
+      <h2>注意事項</h2>
+      <p>
+        このアプリは家計管理を補助するためのツールです。
+        金融・税務・投資などの専門的な助言を行うものではありません。
+      </p>
+      <p>
+        利用者の環境や操作状況によって、データが消失する可能性があります。
+        重要なデータは、必ず利用者自身でバックアップを作成してください。
+      </p>
+    </section>
+
+    <section>
+      <h2>対応環境</h2>
+      <p>Windows 10 / Windows 11 を想定しています。</p>
+    </section>
+  </main>
+
+  <footer>
+  <div class="container">
+    <p>
+      <a href="faq.html">よくある質問</a>
+      |
+      <a href="privacy.html">プライバシーポリシー</a>
+      |
+      <a href="changelog.html">更新履歴</a>
+    </p>
+    <p>&copy; 2026 ouchi-kakeibo</p>
+  </div>
+</footer>
+</body>
+</html>

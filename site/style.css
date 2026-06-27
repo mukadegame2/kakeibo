@@ -1,0 +1,104 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Yu Gothic", "Meiryo", sans-serif;
+  line-height: 1.7;
+  color: #222;
+  background: #f6f7fb;
+}
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.hero {
+  background: linear-gradient(135deg, #3f51b5, #5c6bc0);
+  color: white;
+  padding: 56px 0;
+}
+
+.hero h1 {
+  margin: 0 0 16px;
+  font-size: 36px;
+}
+
+.hero p {
+  max-width: 720px;
+  font-size: 18px;
+}
+
+.download-button {
+  display: inline-block;
+  margin-top: 24px;
+  padding: 14px 28px;
+  color: #3f51b5;
+  background: white;
+  text-decoration: none;
+  font-weight: bold;
+  border-radius: 8px;
+}
+
+.note {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+section {
+  margin: 24px 0;
+  padding: 24px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+h2 {
+  margin-top: 0;
+  border-left: 5px solid #3f51b5;
+  padding-left: 12px;
+}
+
+.feature-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 24px;
+  padding-left: 20px;
+}
+
+.warning {
+  padding: 12px;
+  background: #fff8e1;
+  border-left: 5px solid #ffb300;
+}
+
+code {
+  padding: 2px 5px;
+  background: #eeeeee;
+  border-radius: 4px;
+}
+
+footer {
+  margin-top: 40px;
+  padding: 24px 0;
+  color: #666;
+  text-align: center;
+}
+
+.page-header {
+  background: #3f51b5;
+  color: white;
+  padding: 32px 0;
+}
+
+.page-header h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+}
+
+.page-header p {
+  margin: 0;
+}

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/expense.dart';
 import '../services/category_helper.dart';
+import '../utils/amount_parser.dart';
 
 Future<Expense?> showExpenseEditDialog({
   required BuildContext context,
@@ -244,7 +245,7 @@ class _ExpenseEditDialogState extends State<_ExpenseEditDialog> {
 
         ElevatedButton(
           onPressed: () {
-            final amount = int.tryParse(amountController.text.trim());
+            final amount = AmountParser.parsePositiveInt(amountController.text);
 
             if (amount == null || amount <= 0) {
               ScaffoldMessenger.of(context).showSnackBar(

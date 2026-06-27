@@ -6,6 +6,8 @@ import '../services/category_service.dart';
 import '../services/category_helper.dart';
 import '../widgets/expense_edit_dialog.dart';
 import '../utils/format_helper.dart';
+import '../utils/amount_parser.dart';
+import '../services/default_category_service.dart';
 
 // ========================================
 // 入力画面
@@ -96,6 +98,8 @@ class _InputPageState extends State<InputPage> {
 
   // 収入カテゴリ一覧
   List<String> _incomeCategories = [];
+  String? _defaultExpenseCategory;
+  String? _defaultIncomeCategory;
 
   // 現在の収支種別に応じたカテゴリ一覧
   List<String> get _currentCategories {
@@ -116,21 +120,35 @@ class _InputPageState extends State<InputPage> {
     super.dispose();
   }
 
-  void _syncSelectedCategoryWithType() {
+  void _syncSelectedCategoryWithType({bool forceDefault = false}) {
     final currentCategories = _currentCategories;
 
     if (currentCategories.isEmpty) {
       return;
     }
 
-    if (!currentCategories.contains(_selectedCategory)) {
-      _selectedCategory = currentCategories.first;
+    final defaultCategory = _isIncome
+        ? _defaultIncomeCategory
+        : _defaultExpenseCategory;
+
+    if (forceDefault || !currentCategories.contains(_selectedCategory)) {
+      if (defaultCategory != null &&
+          currentCategories.contains(defaultCategory)) {
+        _selectedCategory = defaultCategory;
+      } else {
+        _selectedCategory = currentCategories.first;
+      }
     }
   }
 
   Future<void> _loadCategories() async {
     final expenseCategories = await CategoryService.loadExpenseCategories();
     final incomeCategories = await CategoryService.loadIncomeCategories();
+
+    final defaultExpenseCategory =
+        await DefaultCategoryService.loadExpenseDefaultCategory();
+    final defaultIncomeCategory =
+        await DefaultCategoryService.loadIncomeDefaultCategory();
 
     if (!mounted) {
       return;
@@ -139,7 +157,82 @@ class _InputPageState extends State<InputPage> {
     setState(() {
       _expenseCategories = expenseCategories;
       _incomeCategories = incomeCategories;
-      _syncSelectedCategoryWithType();
+      _defaultExpenseCategory = defaultExpenseCategory;
+      _defaultIncomeCategory = defaultIncomeCategory;
+      _syncSelectedCategoryWithType(forceDefault: true);
+    });
+  }
+
+  List<String> _buildMemoHistoryCandidates() {
+    final sortedExpenses = [...widget.expenses]
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    final seen = <String>{};
+    final memos = <String>[];
+
+    for (final expense in sortedExpenses) {
+      if (expense.isIncome != _isIncome) {
+        continue;
+      }
+
+      final memo = expense.memo.trim();
+
+      if (memo.isEmpty) {
+        continue;
+      }
+
+      if (seen.add(memo)) {
+        memos.add(memo);
+      }
+
+      if (memos.length >= 20) {
+        break;
+      }
+    }
+
+    return memos;
+  }
+
+  Future<void> _showMemoHistoryDialog() async {
+    final memos = _buildMemoHistoryCandidates();
+
+    if (memos.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("メモ履歴がありません")));
+      return;
+    }
+
+    final selectedMemo = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return SimpleDialog(
+          title: const Text("メモ履歴"),
+          children: memos.map((memo) {
+            return SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(dialogContext, memo);
+              },
+              child: Text(memo),
+            );
+          }).toList(),
+        );
+      },
+    );
+
+    if (selectedMemo == null) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _memoController.text = selectedMemo;
+      _memoController.selection = TextSelection.collapsed(
+        offset: selectedMemo.length,
+      );
     });
   }
 
@@ -286,7 +379,7 @@ class _InputPageState extends State<InputPage> {
             onSelectionChanged: (Set<bool> newSelection) {
               setState(() {
                 _isIncome = newSelection.first;
-                _syncSelectedCategoryWithType();
+                _syncSelectedCategoryWithType(forceDefault: true);
               });
             },
           ),
@@ -328,9 +421,14 @@ class _InputPageState extends State<InputPage> {
           // ========================================
           TextField(
             controller: _memoController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'メモ',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                tooltip: "メモ履歴",
+                icon: const Icon(Icons.history),
+                onPressed: _showMemoHistoryDialog,
+              ),
             ),
           ),
 
@@ -351,7 +449,9 @@ class _InputPageState extends State<InputPage> {
           // ========================================
           ElevatedButton(
             onPressed: () async {
-              final amount = int.tryParse(_amountController.text);
+              final amount = AmountParser.parsePositiveInt(
+                _amountController.text,
+              );
 
               if (amount == null || amount <= 0) {
                 ScaffoldMessenger.of(context).showSnackBar(

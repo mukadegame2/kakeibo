@@ -27,8 +27,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1400, 900);
-  if (!window.Create(L"kakeibo", origin, size)) {
-    return EXIT_FAILURE;
+  if (!window.Create(L"\u304A\u3046\u3061\u5BB6\u8A08\u7C3F", origin, size)) {
+      return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
 

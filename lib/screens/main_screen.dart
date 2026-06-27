@@ -8,6 +8,10 @@ import '../pages/calendar_page.dart'; // カレンダー画面
 import '../pages/graph_page.dart'; // グラフ画面
 import '../pages/setting_page.dart'; // 設定画面
 
+import '../services/initial_setup_service.dart';
+import '../services/savings_service.dart';
+import '../utils/amount_parser.dart';
+
 // ========================================
 // メイン画面
 // 下部メニュー管理
@@ -33,6 +37,8 @@ class _MainScreenState extends State<MainScreen> {
 
   // 家計簿データ一覧
   final List<Expense> expenses = [];
+
+  bool _initialSetupDialogShown = false;
 
   // ========================================
   // 画面起動時処理
@@ -86,6 +92,113 @@ class _MainScreenState extends State<MainScreen> {
       expenses.clear();
       expenses.addAll(loadedExpenses);
     });
+
+    await _checkInitialSetup();
+  }
+
+  Future<void> _checkInitialSetup() async {
+    final hasCompleted = await InitialSetupService.hasCompletedInitialSetup();
+
+    if (!mounted) {
+      return;
+    }
+
+    // 既にデータがある場合は、初期設定済みとして扱う
+    if (expenses.isNotEmpty) {
+      if (!hasCompleted) {
+        await InitialSetupService.completeInitialSetup();
+      }
+      return;
+    }
+
+    if (hasCompleted || _initialSetupDialogShown) {
+      return;
+    }
+
+    _initialSetupDialogShown = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      _showInitialSetupDialog();
+    });
+  }
+
+  Future<void> _showInitialSetupDialog() async {
+    final controller = TextEditingController(text: '0');
+
+    final result = await showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('初期設定'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '最初に、現在の貯金額を設定できます。\n'
+                'あとから設定画面で変更できます。',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: '初期貯金額',
+                  prefixText: '¥ ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, 0);
+              },
+              child: const Text('0円で始める'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final amount = AmountParser.parseNonNegativeInt(
+                  controller.text,
+                );
+
+                if (amount == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('初期貯金額は0以上の数字で入力してください')),
+                  );
+                  return;
+                }
+
+                Navigator.pop(dialogContext, amount);
+              },
+              child: const Text('保存して始める'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (result == null) {
+      return;
+    }
+
+    await SavingsService.saveInitialSavings(result);
+    await InitialSetupService.completeInitialSetup();
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('初期設定を保存しました')));
   }
 
   // ========================================
@@ -121,7 +234,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('家計簿アプリ')),
+      appBar: AppBar(title: const Text('おうち家計簿')),
 
       // 選択中画面表示
       body: _buildPage(),

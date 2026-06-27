@@ -31,7 +31,7 @@ class KakeiboApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: '家計簿',
+      title: 'おうち家計簿',
 
       locale: const Locale('ja', 'JP'),
 

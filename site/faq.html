@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>よくある質問 | おうち家計簿</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="page-header">
+    <div class="container">
+      <h1>よくある質問</h1>
+      <p>おうち家計簿 に関するFAQです。</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section>
+      <h2>Q. おうち家計簿は無料で使えますか？</h2>
+      <p>
+        現時点では無料で利用できます。
+      </p>
+    </section>
+
+    <section>
+      <h2>Q. データはどこに保存されますか？</h2>
+      <p>
+        入力した家計簿データは、お使いのPC内に保存されます。
+        開発者や外部サーバーへ家計簿データが送信されることはありません。
+      </p>
+    </section>
+
+    <section>
+      <h2>Q. 別のPCにデータを移せますか？</h2>
+      <p>
+        設定画面から「CSV保存」または「バックアップ作成」を行い、
+        作成したCSVファイルを別PCで「CSVインポート」または「バックアップ復元」してください。
+      </p>
+    </section>
+
+    <section>
+      <h2>Q. アプリを削除するとデータも消えますか？</h2>
+      <p>
+        アプリ本体のフォルダを削除しても、PC内に保存された家計簿データが残る場合があります。
+        利用終了時や配布前には、必要に応じて設定画面の「全データを初期化」を実行してください。
+      </p>
+    </section>
+
+    <section>
+      <h2>Q. ZIPの中の kakeibo.exe だけを取り出して使えますか？</h2>
+      <p>
+        推奨しません。
+        kakeibo.exe のほかに、data フォルダや .dll ファイルが必要です。
+        ZIPを展開したフォルダ構成のまま起動してください。
+      </p>
+    </section>
+
+    <section>
+      <h2>Q. Windows Defender の警告が出ます</h2>
+      <p>
+        個人作成の未署名アプリのため、環境によっては警告が表示される場合があります。
+        ダウンロード元を確認したうえで利用してください。
+      </p>
+    </section>
+
+    <section>
+      <h2>Q. CSVをExcelで開くと文字化けします</h2>
+      <p>
+        CSVはUTF-8形式で保存されます。
+        Excelで文字化けする場合は、Excelの「データ」→「テキストまたはCSVから」読み込んでください。
+      </p>
+    </section>
+
+    <section>
+      <h2>Q. CSVインポートで一部の行が読み込まれません</h2>
+      <p>
+        日付や金額の形式が正しくない行はスキップされます。
+        日付は「2026/6/25」のような形式、金額は数字で入力してください。
+      </p>
+    </section>
+
+    <section>
+      <h2>Q. 家計簿データが消えた場合、復元できますか？</h2>
+      <p>
+        事前にCSV保存またはバックアップ作成をしている場合は、設定画面から復元できます。
+        バックアップがない場合、復元できない可能性があります。
+      </p>
+    </section>
+
+    <section>
+      <h2>Q. スマートフォンで使えますか？</h2>
+      <p>
+        現在の配布版はWindows向けです。
+        Web版やスマートフォン向けアプリは今後検討予定です。
+      </p>
+    </section>
+
+    <section>
+      <h2>Q. このアプリは金融・税務・投資の助言を行いますか？</h2>
+      <p>
+        行いません。
+        おうち家計簿は家計管理を補助するためのツールです。
+        金融、税務、投資などの専門的な判断は、必要に応じて専門家へ確認してください。
+      </p>
+    </section>
+
+    <p>
+      <a href="index.html">トップページへ戻る</a>
+    </p>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>
+        <a href="privacy.html">プライバシーポリシー</a>
+      |
+      <a href="changelog.html">更新履歴</a>
+      </p>
+      <p>&copy; 2026 ouchi-kakeibo</p>
+    </div>
+  </footer>
+</body>
+</html>

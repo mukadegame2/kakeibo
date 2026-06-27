@@ -9,6 +9,9 @@ import '../services/backup_service.dart';
 import '../services/category_helper.dart';
 import '../services/savings_service.dart';
 import '../utils/format_helper.dart';
+import '../utils/amount_parser.dart';
+import '../services/default_category_service.dart';
+import '../services/initial_setup_service.dart';
 
 // ========================================
 // 設定画面
@@ -45,6 +48,8 @@ class _SettingPageState extends State<SettingPage> {
       TextEditingController();
 
   int initialSavings = 0;
+  String? defaultExpenseCategory;
+  String? defaultIncomeCategory;
 
   final TextEditingController childCategoryController = TextEditingController();
 
@@ -69,12 +74,32 @@ class _SettingPageState extends State<SettingPage> {
   Future<void> loadCategories() async {
     final expenseCategories = await CategoryService.loadExpenseCategories();
     if (!mounted) return;
+
     final incomeCategories = await CategoryService.loadIncomeCategories();
+    if (!mounted) return;
+
+    final savedDefaultExpenseCategory =
+        await DefaultCategoryService.loadExpenseDefaultCategory();
+    if (!mounted) return;
+
+    final savedDefaultIncomeCategory =
+        await DefaultCategoryService.loadIncomeDefaultCategory();
     if (!mounted) return;
 
     setState(() {
       _expenseCategories = expenseCategories;
       _incomeCategories = incomeCategories;
+
+      defaultExpenseCategory = _resolveDefaultCategory(
+        _expenseCategories,
+        savedDefaultExpenseCategory,
+      );
+
+      defaultIncomeCategory = _resolveDefaultCategory(
+        _incomeCategories,
+        savedDefaultIncomeCategory,
+      );
+
       _syncSelectedParentCategory();
     });
   }
@@ -90,7 +115,9 @@ class _SettingPageState extends State<SettingPage> {
   }
 
   Future<void> _saveInitialSavings() async {
-    final amount = int.tryParse(initialSavingsController.text.trim());
+    final amount = AmountParser.parseNonNegativeInt(
+      initialSavingsController.text,
+    );
 
     if (amount == null || amount < 0) {
       ScaffoldMessenger.of(
@@ -158,6 +185,8 @@ class _SettingPageState extends State<SettingPage> {
 
     await SavingsService.saveInitialSavings(0);
 
+    await InitialSetupService.resetInitialSetup();
+
     await widget.onSave();
 
     if (!mounted) {
@@ -189,6 +218,51 @@ class _SettingPageState extends State<SettingPage> {
         !parentCategories.contains(selectedParentCategory)) {
       selectedParentCategory = parentCategories.first;
     }
+  }
+
+  String? _resolveDefaultCategory(
+    List<String> targetCategories,
+    String? savedCategory,
+  ) {
+    if (targetCategories.isEmpty) {
+      return null;
+    }
+
+    if (savedCategory != null && targetCategories.contains(savedCategory)) {
+      return savedCategory;
+    }
+
+    return targetCategories.first;
+  }
+
+  String? _currentDefaultCategory() {
+    return _isIncomeCategoryMode
+        ? defaultIncomeCategory
+        : defaultExpenseCategory;
+  }
+
+  Future<void> _saveCurrentDefaultCategory(String category) async {
+    if (_isIncomeCategoryMode) {
+      await DefaultCategoryService.saveIncomeDefaultCategory(category);
+      if (!mounted) return;
+
+      setState(() {
+        defaultIncomeCategory = category;
+      });
+    } else {
+      await DefaultCategoryService.saveExpenseDefaultCategory(category);
+      if (!mounted) return;
+
+      setState(() {
+        defaultExpenseCategory = category;
+      });
+    }
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("初期カテゴリを保存しました")));
   }
 
   Future<void> _saveCurrentCategories() async {
@@ -562,54 +636,6 @@ class _SettingPageState extends State<SettingPage> {
       padding: const EdgeInsets.only(bottom: 16),
       children: [
         _buildSectionCard(
-          title: "初期化",
-          children: [
-            const Text("収支データ、カテゴリ、初期貯金額をすべて初期状態に戻します。"),
-
-            const SizedBox(height: 8),
-
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: _resetAllData,
-              icon: const Icon(Icons.delete_forever),
-              label: const Text("全データを初期化"),
-            ),
-          ],
-        ),
-        _buildSectionCard(
-          title: "貯金設定",
-          children: [
-            TextField(
-              controller: initialSavingsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "初期貯金額",
-                prefixText: "¥ ",
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            Text(
-              "現在の設定：${FormatHelper.yen(initialSavings)}",
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 8),
-
-            ElevatedButton.icon(
-              onPressed: _saveInitialSavings,
-              icon: const Icon(Icons.savings),
-              label: const Text("初期貯金額を保存"),
-            ),
-          ],
-        ),
-
-        _buildSectionCard(
           title: "カテゴリ種別",
           children: [
             SegmentedButton<bool>(
@@ -633,6 +659,49 @@ class _SettingPageState extends State<SettingPage> {
                   categoryController.clear();
                   childCategoryController.clear();
                 });
+              },
+            ),
+          ],
+        ),
+
+        _buildSectionCard(
+          title: "初期カテゴリ設定",
+          children: [
+            const Text("入力画面で最初に選ばれるカテゴリを設定します。"),
+
+            const SizedBox(height: 8),
+
+            DropdownButtonFormField<String>(
+              key: ValueKey(
+                'default-category-$_isIncomeCategoryMode-${_currentDefaultCategory() ?? ""}',
+              ),
+              initialValue: categories.contains(_currentDefaultCategory())
+                  ? _currentDefaultCategory()
+                  : categories.isNotEmpty
+                  ? categories.first
+                  : null,
+              decoration: InputDecoration(
+                labelText: _isIncomeCategoryMode ? "収入の初期カテゴリ" : "支出の初期カテゴリ",
+                border: const OutlineInputBorder(),
+              ),
+              items: displayCategories.map((category) {
+                final isChild = CategoryHelper.isChildCategory(category);
+
+                return DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(
+                    isChild
+                        ? "   ↳ ${CategoryHelper.childOf(category)}"
+                        : "📁 $category",
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) async {
+                if (value == null) {
+                  return;
+                }
+
+                await _saveCurrentDefaultCategory(value);
               },
             ),
           ],
@@ -1013,7 +1082,56 @@ class _SettingPageState extends State<SettingPage> {
           ],
         ),
 
+        _buildSectionCard(
+          title: "貯金設定",
+          children: [
+            TextField(
+              controller: initialSavingsController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "初期貯金額",
+                prefixText: "¥ ",
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              "現在の設定：${FormatHelper.yen(initialSavings)}",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 8),
+
+            ElevatedButton.icon(
+              onPressed: _saveInitialSavings,
+              icon: const Icon(Icons.savings),
+              label: const Text("初期貯金額を保存"),
+            ),
+          ],
+        ),
+
         const SizedBox(height: 16),
+
+        _buildSectionCard(
+          title: "初期化",
+          children: [
+            const Text("収支データ、カテゴリ、初期貯金額をすべて初期状態に戻します。"),
+
+            const SizedBox(height: 8),
+
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: _resetAllData,
+              icon: const Icon(Icons.delete_forever),
+              label: const Text("全データを初期化"),
+            ),
+          ],
+        ),
       ],
     );
   }
