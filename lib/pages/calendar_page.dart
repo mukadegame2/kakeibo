@@ -170,6 +170,10 @@ class _CalendarPageState extends State<CalendarPage> {
       return;
     }
 
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       customStartDate = pickedDate;
 
@@ -191,6 +195,10 @@ class _CalendarPageState extends State<CalendarPage> {
     );
 
     if (pickedDate == null) {
+      return;
+    }
+
+    if (!mounted) {
       return;
     }
 

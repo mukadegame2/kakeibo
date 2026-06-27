@@ -7,11 +7,13 @@ import '../utils/format_helper.dart';
 class MonthlyBalanceChart extends StatelessWidget {
   final List<Expense> expenses;
   final int year;
+  final bool showIncome;
 
   const MonthlyBalanceChart({
     super.key,
     required this.expenses,
     required this.year,
+    required this.showIncome,
   });
 
   double _calculateYAxisInterval(int maxAbsValue) {
@@ -50,10 +52,10 @@ class MonthlyBalanceChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final monthlyBalances = <int, int>{};
+    final monthlyTotals = <int, int>{};
 
     for (int month = 1; month <= 12; month++) {
-      monthlyBalances[month] = 0;
+      monthlyTotals[month] = 0;
     }
 
     for (final expense in expenses) {
@@ -61,24 +63,27 @@ class MonthlyBalanceChart extends StatelessWidget {
         continue;
       }
 
-      final month = expense.date.month;
-      final amount = expense.isIncome ? expense.amount : -expense.amount;
+      if (expense.isIncome != showIncome) {
+        continue;
+      }
 
-      monthlyBalances[month] = (monthlyBalances[month] ?? 0) + amount;
+      final month = expense.date.month;
+
+      monthlyTotals[month] = (monthlyTotals[month] ?? 0) + expense.amount;
     }
 
-    final maxAbsValue = monthlyBalances.values.fold<int>(
+    final maxValue = monthlyTotals.values.fold<int>(
       0,
-      (max, value) => value.abs() > max ? value.abs() : max,
+      (max, value) => value > max ? value : max,
     );
 
-    final yInterval = _calculateYAxisInterval(maxAbsValue);
+    final yInterval = _calculateYAxisInterval(maxValue);
 
-    final chartMaxY = maxAbsValue == 0
+    final chartMaxY = maxValue == 0
         ? 1000.0
-        : ((maxAbsValue * 1.25) / yInterval).ceil() * yInterval;
+        : ((maxValue * 1.25) / yInterval).ceil() * yInterval;
 
-    final chartMinY = -chartMaxY;
+    const chartMinY = 0.0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -179,7 +184,7 @@ class MonthlyBalanceChart extends StatelessWidget {
                     tooltipMargin: 8,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       return BarTooltipItem(
-                        FormatHelper.signedYen(rod.toY.toInt()),
+                        FormatHelper.yen(rod.toY.toInt()),
                         const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -189,17 +194,17 @@ class MonthlyBalanceChart extends StatelessWidget {
                   ),
                 ),
 
-                barGroups: monthlyBalances.entries.map((entry) {
+                barGroups: monthlyTotals.entries.map((entry) {
                   final month = entry.key;
-                  final balance = entry.value;
+                  final total = entry.value;
 
                   return BarChartGroupData(
                     x: month,
                     barRods: [
                       BarChartRodData(
-                        toY: balance.toDouble(),
+                        toY: total.toDouble(),
                         width: 18,
-                        color: balance >= 0 ? Colors.blue : Colors.red,
+                        color: showIncome ? Colors.blue : Colors.red,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ],

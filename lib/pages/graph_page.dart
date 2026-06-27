@@ -375,13 +375,16 @@ class _GraphPageState extends State<GraphPage> {
             const SizedBox(height: 8),
 
             Text(
-              "${selectedMonth.year}年 月別収支推移",
+              showIncome
+                  ? "${selectedMonth.year}年 月別収入推移"
+                  : "${selectedMonth.year}年 月別支出推移",
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
 
             MonthlyBalanceChart(
               expenses: widget.expenses,
               year: selectedMonth.year,
+              showIncome: showIncome,
             ),
 
             const SizedBox(height: 8),

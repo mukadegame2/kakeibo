@@ -180,6 +180,16 @@ class _SettingPageState extends State<SettingPage> {
     _expenseCategories = List.from(CategoryService.defaultExpenseCategories);
     _incomeCategories = List.from(CategoryService.defaultIncomeCategories);
 
+    final resetDefaultExpenseCategory = _expenseCategories.first;
+    final resetDefaultIncomeCategory = _incomeCategories.first;
+
+    await DefaultCategoryService.saveExpenseDefaultCategory(
+      resetDefaultExpenseCategory,
+    );
+    await DefaultCategoryService.saveIncomeDefaultCategory(
+      resetDefaultIncomeCategory,
+    );
+
     await CategoryService.saveExpenseCategories(_expenseCategories);
     await CategoryService.saveIncomeCategories(_incomeCategories);
 
@@ -196,6 +206,8 @@ class _SettingPageState extends State<SettingPage> {
     setState(() {
       initialSavings = 0;
       initialSavingsController.text = "0";
+      defaultExpenseCategory = resetDefaultExpenseCategory;
+      defaultIncomeCategory = resetDefaultIncomeCategory;
       _syncSelectedParentCategory();
     });
 
@@ -761,6 +773,22 @@ class _SettingPageState extends State<SettingPage> {
 
                 categories[index] = newCategory;
 
+                if (_isIncomeCategoryMode &&
+                    defaultIncomeCategory == oldCategory) {
+                  defaultIncomeCategory = newCategory;
+                  await DefaultCategoryService.saveIncomeDefaultCategory(
+                    newCategory,
+                  );
+                }
+
+                if (!_isIncomeCategoryMode &&
+                    defaultExpenseCategory == oldCategory) {
+                  defaultExpenseCategory = newCategory;
+                  await DefaultCategoryService.saveExpenseDefaultCategory(
+                    newCategory,
+                  );
+                }
+
                 for (int i = 0; i < widget.expenses.length; i++) {
                   final expense = widget.expenses[i];
 
@@ -1154,6 +1182,30 @@ class _SettingPageState extends State<SettingPage> {
                         }
 
                         categories.remove(category);
+
+                        if (_isIncomeCategoryMode &&
+                            defaultIncomeCategory == category) {
+                          final fallbackCategory = categories.contains("その他")
+                              ? "その他"
+                              : categories.first;
+
+                          defaultIncomeCategory = fallbackCategory;
+                          await DefaultCategoryService.saveIncomeDefaultCategory(
+                            fallbackCategory,
+                          );
+                        }
+
+                        if (!_isIncomeCategoryMode &&
+                            defaultExpenseCategory == category) {
+                          final fallbackCategory = categories.contains("その他")
+                              ? "その他"
+                              : categories.first;
+
+                          defaultExpenseCategory = fallbackCategory;
+                          await DefaultCategoryService.saveExpenseDefaultCategory(
+                            fallbackCategory,
+                          );
+                        }
 
                         await _saveCurrentCategories();
                         if (!mounted) return;

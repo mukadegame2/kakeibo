@@ -70,11 +70,7 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> loadExpenses() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final jsonList = prefs.getStringList('expenses');
-
-    if (jsonList == null) {
-      return;
-    }
+    final jsonList = prefs.getStringList('expenses') ?? [];
 
     final loadedExpenses = <Expense>[];
 
