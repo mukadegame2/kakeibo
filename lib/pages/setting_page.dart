@@ -331,6 +331,42 @@ class _SettingPageState extends State<SettingPage> {
     _syncSelectedParentCategory();
   }
 
+  String _expenseDuplicateKey(Expense expense) {
+    return [
+      expense.date.toIso8601String(),
+      expense.amount.toString(),
+      expense.isIncome ? 'income' : 'expense',
+      expense.category,
+      expense.memo.trim(),
+    ].join('|');
+  }
+
+  List<Expense> _removeDuplicateImportedExpenses(
+    List<Expense> importedExpenses,
+  ) {
+    final existingKeys = widget.expenses.map(_expenseDuplicateKey).toSet();
+
+    final newExpenses = <Expense>[];
+    final newKeys = <String>{};
+
+    for (final expense in importedExpenses) {
+      final key = _expenseDuplicateKey(expense);
+
+      if (existingKeys.contains(key)) {
+        continue;
+      }
+
+      if (newKeys.contains(key)) {
+        continue;
+      }
+
+      newExpenses.add(expense);
+      newKeys.add(key);
+    }
+
+    return newExpenses;
+  }
+
   Future<void> importCsvFile({bool isBackupRestore = false}) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -467,6 +503,142 @@ class _SettingPageState extends State<SettingPage> {
                 : "CSVインポートに失敗しました\nCSV形式を確認してください",
           ),
         ),
+      );
+    }
+  }
+
+  Future<void> importPayPayCsvFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+    );
+
+    if (!mounted) return;
+
+    if (result == null) {
+      return;
+    }
+
+    final path = result.files.single.path;
+
+    if (path == null) {
+      return;
+    }
+
+    final fileName = result.files.single.name;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("PayPay CSV取込確認"),
+          content: Text(
+            "以下のPayPay CSVファイルを取り込みます。\n\n"
+            "$fileName\n\n"
+            "出金金額がある行だけを支出として追加します。\n"
+            "チャージなどの入金行は取り込みません。\n\n"
+            "既存の家計簿データは上書きされません。",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text("キャンセル"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text("取り込む"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    if (confirm != true) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final csvText = await File(path).readAsString();
+
+      if (!mounted) {
+        return;
+      }
+
+      final importResult = CsvImportService.importPayPayCsv(csvText);
+      final importedExpenses = importResult.expenses;
+
+      if (importedExpenses.isEmpty) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              "PayPay CSVから取り込める支出がありませんでした\n"
+              "スキップ：${importResult.skippedRows}件",
+            ),
+          ),
+        );
+        return;
+      }
+
+      final newExpenses = _removeDuplicateImportedExpenses(importedExpenses);
+
+      if (newExpenses.isEmpty) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              "新しく取り込めるPayPay支出はありませんでした\n"
+              "取込対象：${importedExpenses.length}件 / 重複：${importedExpenses.length}件",
+            ),
+          ),
+        );
+        return;
+      }
+
+      newExpenses.sort((a, b) => b.date.compareTo(a.date));
+
+      await _syncCategoriesFromExpenses(newExpenses);
+
+      if (!mounted) {
+        return;
+      }
+
+      widget.expenses.addAll(newExpenses);
+      widget.expenses.sort((a, b) => b.date.compareTo(a.date));
+
+      await widget.onSave();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _syncSelectedParentCategory();
+      });
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            "PayPay CSVを取り込みました\n"
+            "取込：${newExpenses.length}件"
+            "${importedExpenses.length - newExpenses.length > 0 ? " / 重複：${importedExpenses.length - newExpenses.length}件" : ""}"
+            "${importResult.skippedRows > 0 ? " / スキップ：${importResult.skippedRows}件" : ""}",
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(
+        const SnackBar(content: Text("PayPay CSVの取り込みに失敗しました")),
       );
     }
   }
@@ -1045,6 +1217,24 @@ class _SettingPageState extends State<SettingPage> {
         _buildSectionCard(
           title: "CSV",
           children: [
+            const Text(
+              "PayPayの利用履歴CSVを取り込めます。"
+              "出金金額がある行だけを支出として追加し、チャージ行は取り込みません。",
+            ),
+
+            const SizedBox(height: 8),
+
+            OutlinedButton.icon(
+              onPressed: () async {
+                await importPayPayCsvFile();
+                if (!mounted) return;
+              },
+              icon: const Icon(Icons.file_upload),
+              label: const Text("PayPay CSV取込"),
+            ),
+
+            const SizedBox(height: 8),
+
             OutlinedButton.icon(
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
@@ -1055,29 +1245,18 @@ class _SettingPageState extends State<SettingPage> {
                   if (!mounted) return;
 
                   messenger.showSnackBar(
-                    SnackBar(content: Text("CSV保存完了\n$path")),
+                    SnackBar(content: Text("家計簿CSVを保存しました\n$path")),
                   );
                 } catch (e) {
                   if (!mounted) return;
 
                   messenger.showSnackBar(
-                    SnackBar(content: Text("CSV保存に失敗しました\n$e")),
+                    SnackBar(content: Text("家計簿CSV保存に失敗しました\n$e")),
                   );
                 }
               },
               icon: const Icon(Icons.file_download),
-              label: const Text("CSV保存"),
-            ),
-
-            const SizedBox(height: 8),
-
-            OutlinedButton.icon(
-              onPressed: () async {
-                await importCsvFile();
-                if (!mounted) return;
-              },
-              icon: const Icon(Icons.file_upload),
-              label: const Text("CSVインポート"),
+              label: const Text("家計簿CSV保存"),
             ),
           ],
         ),

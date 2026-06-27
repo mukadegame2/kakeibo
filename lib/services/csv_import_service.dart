@@ -11,47 +11,49 @@ class CsvImportResult {
 
 class CsvImportService {
   static CsvImportResult importCsv(String csvText) {
-    final rows = const CsvToListConverter().convert(csvText);
+    final rows = const CsvToListConverter(
+      shouldParseNumbers: false,
+    ).convert(csvText);
+
+    if (rows.isEmpty) {
+      return const CsvImportResult(expenses: [], skippedRows: 0);
+    }
 
     final expenses = <Expense>[];
-    int skippedRows = 0;
+    var skippedRows = 0;
 
     for (int i = 1; i < rows.length; i++) {
-      final values = rows[i];
+      final row = rows[i];
 
-      if (_isEmptyRow(values)) {
+      if (_isEmptyRow(row)) {
         continue;
       }
 
-      if (values.length < 5) {
+      if (row.length < 5) {
         skippedRows++;
         continue;
       }
 
-      final date = _parseDate(values[0].toString());
-      final amount = _parseAmount(values[3].toString());
+      final date = _parseDate(row[0].toString());
+      final type = row[1].toString().trim();
+      final category = row[2].toString().trim();
+      final amount = _parseAmount(row[3].toString());
+      final memo = row[4].toString().trim();
 
-      if (date == null || amount == null || amount <= 0) {
+      if (date == null || category.isEmpty || amount == null || amount <= 0) {
         skippedRows++;
         continue;
       }
 
-      final typeText = values[1].toString().trim();
-      final isIncome = typeText == "収入";
-
-      final category = values[2].toString().trim().isEmpty
-          ? "その他"
-          : values[2].toString().trim();
-
-      final memo = values[4].toString();
+      final isIncome = type.contains('収入');
 
       expenses.add(
         Expense(
+          amount: amount,
+          category: category,
+          memo: memo,
           date: date,
           isIncome: isIncome,
-          category: category,
-          amount: amount,
-          memo: memo,
         ),
       );
     }
@@ -59,42 +61,151 @@ class CsvImportService {
     return CsvImportResult(expenses: expenses, skippedRows: skippedRows);
   }
 
-  static bool _isEmptyRow(List<dynamic> values) {
-    return values.every((value) => value.toString().trim().isEmpty);
+  static CsvImportResult importPayPayCsv(String csvText) {
+    final rows = const CsvToListConverter(
+      shouldParseNumbers: false,
+    ).convert(csvText);
+
+    if (rows.isEmpty) {
+      return const CsvImportResult(expenses: [], skippedRows: 0);
+    }
+
+    final header = rows.first.map((cell) {
+      return _normalizeHeader(cell.toString());
+    }).toList();
+
+    final dateIndex = header.indexOf('取引日');
+    final withdrawalIndex = header.indexOf('出金金額（円）');
+    final transactionTypeIndex = header.indexOf('取引内容');
+    final partnerIndex = header.indexOf('取引先');
+
+    if (dateIndex == -1 || withdrawalIndex == -1) {
+      return CsvImportResult(
+        expenses: const [],
+        skippedRows: rows.length > 1 ? rows.length - 1 : 0,
+      );
+    }
+
+    final expenses = <Expense>[];
+    var skippedRows = 0;
+
+    for (int i = 1; i < rows.length; i++) {
+      final row = rows[i];
+
+      if (_isEmptyRow(row)) {
+        continue;
+      }
+
+      final dateText = _valueAt(row, dateIndex);
+      final withdrawalText = _valueAt(row, withdrawalIndex);
+      final transactionType = transactionTypeIndex == -1
+          ? ''
+          : _valueAt(row, transactionTypeIndex);
+      final partner = partnerIndex == -1 ? '' : _valueAt(row, partnerIndex);
+
+      final date = _parseDate(dateText);
+      final amount = _parseAmount(withdrawalText);
+
+      // PayPayチャージなど、出金金額がない行は取り込まない
+      if (date == null || amount == null || amount <= 0) {
+        skippedRows++;
+        continue;
+      }
+
+      final memo = _buildPayPayMemo(
+        transactionType: transactionType,
+        partner: partner,
+      );
+
+      expenses.add(
+        Expense(
+          amount: amount,
+          category: 'その他',
+          memo: memo,
+          date: date,
+          isIncome: false,
+        ),
+      );
+    }
+
+    return CsvImportResult(expenses: expenses, skippedRows: skippedRows);
+  }
+
+  static String _buildPayPayMemo({
+    required String transactionType,
+    required String partner,
+  }) {
+    final cleanPartner = partner.trim();
+    final cleanTransactionType = transactionType.trim();
+
+    if (cleanPartner.isNotEmpty && cleanPartner != '-') {
+      return cleanPartner;
+    }
+
+    if (cleanTransactionType.isNotEmpty && cleanTransactionType != '-') {
+      return cleanTransactionType;
+    }
+
+    return 'PayPay';
+  }
+
+  static String _valueAt(List<dynamic> row, int index) {
+    if (index < 0 || index >= row.length) {
+      return '';
+    }
+
+    return row[index].toString().trim();
+  }
+
+  static String _normalizeHeader(String value) {
+    return value.replaceFirst('\uFEFF', '').trim();
+  }
+
+  static bool _isEmptyRow(List<dynamic> row) {
+    return row.every((cell) => cell.toString().trim().isEmpty);
   }
 
   static DateTime? _parseDate(String value) {
     final text = value.trim();
 
-    if (text.isEmpty) {
+    if (text.isEmpty || text == '-') {
       return null;
     }
 
-    final normalizedText = text.replaceAll('-', '/').replaceAll('.', '/');
+    final parts = text.split(RegExp(r'\s+'));
+    final dateText = parts.first.replaceAll('-', '/').replaceAll('.', '/');
+    final dateParts = dateText.split('/');
 
-    final parts = normalizedText.split('/');
-
-    if (parts.length < 3) {
+    if (dateParts.length != 3) {
       return null;
     }
 
-    final year = int.tryParse(parts[0]);
-    final month = int.tryParse(parts[1]);
-    final day = int.tryParse(parts[2]);
+    final year = int.tryParse(dateParts[0]);
+    final month = int.tryParse(dateParts[1]);
+    final day = int.tryParse(dateParts[2]);
 
     if (year == null || month == null || day == null) {
       return null;
     }
 
-    if (month < 1 || month > 12) {
-      return null;
+    var hour = 0;
+    var minute = 0;
+    var second = 0;
+
+    if (parts.length >= 2) {
+      final timeParts = parts[1].split(':');
+
+      if (timeParts.length >= 2) {
+        hour = int.tryParse(timeParts[0]) ?? 0;
+        minute = int.tryParse(timeParts[1]) ?? 0;
+      }
+
+      if (timeParts.length >= 3) {
+        second = int.tryParse(timeParts[2]) ?? 0;
+      }
     }
 
-    if (day < 1 || day > 31) {
-      return null;
-    }
-
-    final date = DateTime(year, month, day);
+    final date = DateTime(year, month, day, hour, minute, second);
 
     if (date.year != year || date.month != month || date.day != day) {
       return null;
@@ -104,29 +215,51 @@ class CsvImportService {
   }
 
   static int? _parseAmount(String value) {
-    final text = value
-        .trim()
+    var text = _toHalfWidth(value.trim());
+
+    if (text.isEmpty || text == '-') {
+      return null;
+    }
+
+    text = text
         .replaceAll(',', '')
+        .replaceAll('，', '')
         .replaceAll('¥', '')
-        .replaceAll('+', '')
-        .replaceAll('円', '');
+        .replaceAll('￥', '')
+        .replaceAll('円', '')
+        .replaceAll(' ', '')
+        .replaceAll('　', '');
 
-    if (text.isEmpty) {
+    if (text.startsWith('+')) {
+      text = text.substring(1);
+    }
+
+    if (!RegExp(r'^\d+(\.\d+)?$').hasMatch(text)) {
       return null;
     }
 
-    final intValue = int.tryParse(text);
+    final number = double.tryParse(text);
 
-    if (intValue != null) {
-      return intValue;
-    }
-
-    final doubleValue = double.tryParse(text);
-
-    if (doubleValue == null) {
+    if (number == null) {
       return null;
     }
 
-    return doubleValue.round();
+    return number.round();
+  }
+
+  static String _toHalfWidth(String value) {
+    final buffer = StringBuffer();
+
+    for (final codeUnit in value.codeUnits) {
+      if (codeUnit >= 0xFF10 && codeUnit <= 0xFF19) {
+        buffer.writeCharCode(codeUnit - 0xFF10 + 0x30);
+      } else if (codeUnit == 0xFF0B) {
+        buffer.write('+');
+      } else {
+        buffer.writeCharCode(codeUnit);
+      }
+    }
+
+    return buffer.toString();
   }
 }
