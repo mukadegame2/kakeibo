@@ -1,6 +1,6 @@
 // ========================================
-// 家計簿アプリ
-// 学習用・個人開発用
+// おうち家計簿
+// 収入・支出・カテゴリ・カレンダー・グラフ・貯金額を管理するアプリ
 // ========================================
 
 // インポート
@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'screens/main_screen.dart'; // メインシーン
+import 'screens/main_screen.dart'; // メイン画面
 
 // ========================================
 // アプリ起動

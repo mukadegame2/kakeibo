@@ -15,8 +15,7 @@ import '../services/initial_setup_service.dart';
 
 // ========================================
 // 設定画面
-// アプリ設定やカテゴリ管理を行う画面
-// （現在は仮実装）
+// カテゴリ管理、初期カテゴリ設定、バックアップ、CSV取込、貯金設定、初期化を行う画面
 // ========================================
 class SettingPage extends StatefulWidget {
   final List<Expense> expenses;

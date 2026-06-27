@@ -435,10 +435,10 @@ class _InputPageState extends State<InputPage> {
           const SizedBox(height: 24),
 
           // ========================================
-          // 支出一覧タイトル
+          // 登録済みデータ一覧タイトル
           // ========================================
           const Text(
-            '支出一覧',
+            '登録済みデータ',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
 

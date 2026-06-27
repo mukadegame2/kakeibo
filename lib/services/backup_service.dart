@@ -29,7 +29,7 @@ class BackupService {
 
     final file = File(path);
 
-    await file.writeAsString(csv);
+    await file.writeAsString('\ufeff$csv');
 
     return path;
   }

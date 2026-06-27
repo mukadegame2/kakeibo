@@ -16,7 +16,7 @@ enum GraphMode { expense, income, savings }
 
 // ========================================
 // グラフ画面
-// カテゴリ別の支出集計を表示する
+// 支出・収入・貯金額のグラフ表示を行う画面
 // ========================================
 class GraphPage extends StatefulWidget {
   // 家計簿データのリスト
@@ -117,8 +117,7 @@ class _GraphPageState extends State<GraphPage> {
     };
 
     // ========================================
-    // 支出データをカテゴリ別に集計
-    // 収入は集計対象外
+    // 選択中の支出/収入モードに合わせてカテゴリ別に集計
     // ========================================
     for (var expense in widget.expenses) {
       if (expense.date.year != selectedMonth.year ||
@@ -126,7 +125,7 @@ class _GraphPageState extends State<GraphPage> {
         continue;
       }
 
-      // 収入はスキップ
+      // 選択中のモードと異なる明細はスキップ
       if (expense.isIncome != showIncome) {
         continue;
       }

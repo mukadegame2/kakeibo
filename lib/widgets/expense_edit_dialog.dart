@@ -221,6 +221,10 @@ class _ExpenseEditDialogState extends State<_ExpenseEditDialog> {
                   return;
                 }
 
+                if (!mounted) {
+                  return;
+                }
+
                 setState(() {
                   editDate = pickedDate;
                 });

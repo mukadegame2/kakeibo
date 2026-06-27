@@ -12,7 +12,7 @@ class CsvService {
 
     for (final expense in expenses) {
       rows.add([
-        "${expense.date.year}/${expense.date.month}/${expense.date.day}",
+        _formatDateTime(expense.date),
         expense.isIncome ? '収入' : '支出',
         expense.category,
         expense.amount,
@@ -21,6 +21,11 @@ class CsvService {
     }
 
     return const ListToCsvConverter().convert(rows);
+  }
+
+  static String _formatDateTime(DateTime date) {
+    return "${date.year}/${_twoDigits(date.month)}/${_twoDigits(date.day)} "
+        "${_twoDigits(date.hour)}:${_twoDigits(date.minute)}:${_twoDigits(date.second)}";
   }
 
   static String _twoDigits(int value) {
