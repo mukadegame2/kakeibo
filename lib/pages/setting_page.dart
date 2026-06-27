@@ -379,7 +379,7 @@ class _SettingPageState extends State<SettingPage> {
     return newExpenses;
   }
 
-  Future<void> importCsvFile({bool isBackupRestore = false}) async {
+  Future<void> restoreBackupCsvFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
@@ -402,19 +402,14 @@ class _SettingPageState extends State<SettingPage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(isBackupRestore ? "バックアップ復元確認" : "CSVインポート確認"),
+          title: const Text("バックアップ復元確認"),
 
           content: Text(
-            isBackupRestore
-                ? "以下のバックアップファイルから復元します。\n\n"
-                      "$fileName\n\n"
-                      "現在の家計簿データはすべて上書きされます。\n"
-                      "この操作は元に戻せません。\n\n"
-                      "復元前に、必要であれば現在のデータをバックアップしてください。"
-                : "以下のCSVファイルを読み込みます。\n\n"
-                      "$fileName\n\n"
-                      "現在の家計簿データはすべて上書きされます。\n"
-                      "この操作は元に戻せません。",
+            "以下のバックアップファイルから復元します。\n\n"
+            "$fileName\n\n"
+            "現在の家計簿データはすべて上書きされます。\n"
+            "この操作は元に戻せません。\n\n"
+            "復元前に、必要であれば現在のデータをバックアップしてください。",
           ),
 
           actions: [
@@ -429,7 +424,7 @@ class _SettingPageState extends State<SettingPage> {
               onPressed: () {
                 Navigator.pop(dialogContext, true);
               },
-              child: Text(isBackupRestore ? "復元する" : "インポートする"),
+              child: const Text("復元する"),
             ),
           ],
         );
@@ -457,11 +452,8 @@ class _SettingPageState extends State<SettingPage> {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              isBackupRestore
-                  ? "復元できるデータがありませんでした\n"
-                        "スキップ：${importResult.skippedRows}件"
-                  : "取り込めるデータがありませんでした\n"
-                        "スキップ：${importResult.skippedRows}件",
+              "復元できるデータがありませんでした\n"
+              "スキップ：${importResult.skippedRows}件",
             ),
           ),
         );
@@ -492,13 +484,9 @@ class _SettingPageState extends State<SettingPage> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            isBackupRestore
-                ? "バックアップを復元しました\n"
-                      "取込：${importedExpenses.length}件"
-                      "${importResult.skippedRows > 0 ? " / スキップ：${importResult.skippedRows}件" : ""}"
-                : "CSVをインポートしました\n"
-                      "取込：${importedExpenses.length}件"
-                      "${importResult.skippedRows > 0 ? " / スキップ：${importResult.skippedRows}件" : ""}",
+            "バックアップを復元しました\n"
+            "取込：${importedExpenses.length}件"
+            "${importResult.skippedRows > 0 ? " / スキップ：${importResult.skippedRows}件" : ""}",
           ),
         ),
       );
@@ -508,13 +496,7 @@ class _SettingPageState extends State<SettingPage> {
       }
 
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            isBackupRestore
-                ? "バックアップ復元に失敗しました\nCSV形式を確認してください"
-                : "CSVインポートに失敗しました\nCSV形式を確認してください",
-          ),
-        ),
+        SnackBar(content: Text("バックアップ復元に失敗しました\nCSV形式を確認してください")),
       );
     }
   }
@@ -1256,7 +1238,7 @@ class _SettingPageState extends State<SettingPage> {
 
             ElevatedButton.icon(
               onPressed: () async {
-                await importCsvFile(isBackupRestore: true);
+                await restoreBackupCsvFile();
                 if (!mounted) return;
               },
 
